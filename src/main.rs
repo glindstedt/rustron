@@ -1,4 +1,5 @@
 use std::io;
+use std::sync::mpsc::{channel, Sender};
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -31,14 +32,19 @@ impl Connection {
         }
     }
 
-    pub fn open(&mut self) -> Result<(), failure::Error> {
+    fn connect_midi_out(&mut self) -> Result<(), failure::Error> {
         let output = MidiOutput::new("Neutron").unwrap();
         let out_port = get_neutron_port(&output)?;
         self.midi_out = output
             .connect(out_port, "neutron")
-            .map_err(|_| failure::err_msg("Could not connect MIDI out to Neutron"))
             .ok();
+        Ok(())
+    }
 
+    pub fn register_midi_in_callback(
+        &mut self,
+        message_sender_channel: Sender<String>,
+    ) -> Result<(), failure::Error> {
         let input = MidiInput::new("Neutron").unwrap();
         let in_port = get_neutron_port(&input)?;
 
@@ -46,42 +52,50 @@ impl Connection {
             .connect(
                 in_port,
                 "neutron",
-                |ts, msg, _| print!("{}", hex::encode(msg)),
+                move |ts, msg, _| { message_sender_channel.send(hex::encode(msg)); },
                 (),
             )
-            .map_err(|_| failure::err_msg("Could not connect MIDI in to Neutron"))
+            .map_err(|e| failure::err_msg(e.to_string()))
             .ok();
 
         Ok(())
     }
 
     pub fn send_message(&mut self, message: Vec<u8>) -> Result<(), failure::Error> {
+        if self.midi_out.is_none() {
+            self.connect_midi_out()?;
+        }
         match &mut self.midi_out {
             Some(out) => out.send(&message)
-                .map_err(|e| failure::err_msg("")),
+                .map_err(|e| failure::err_msg(e.to_string())),
             None => Err(failure::err_msg("No connection established.")),
         }
     }
 }
 
-pub struct App<'a> {
-    connection: Connection,
-    midi_in_messages: Vec<&'a str>,
+pub struct State {
+    midi_in_messages: Vec<String>,
 }
 
-impl<'a> App<'a> {
-    pub fn new() -> Result<App<'a>, failure::Error> {
+impl State {
+    pub fn new() -> State {
+        State {
+            midi_in_messages: Vec::new().into(),
+        }
+    }
+}
+
+pub struct App {
+    connection: Connection,
+    state: State,
+}
+
+impl App {
+    pub fn new(state: State) -> Result<App, failure::Error> {
         Ok(App {
             connection: Connection::new().into(),
-            midi_in_messages: Vec::new().into(),
+            state,
         })
-    }
-
-    pub fn connect(&mut self) -> Result<(), failure::Error> {
-        if self.connection.midi_out.is_none() && self.connection.midi_in.is_none() {
-            self.connection.open()?
-        }
-        Ok(())
     }
 }
 
@@ -92,12 +106,19 @@ fn main() -> Result<(), failure::Error> {
 
     let events = Events::new();
 
-    let app = &mut App::new()?;
-    app.midi_in_messages.push("Hello World!");
-    app.connect();
+    let (midi_in_sender, midi_in_receiver) = channel();
+    let state = State::new();
+
+    let app = &mut App::new(state)?;
+    app.state.midi_in_messages.push(String::from("Hello World!"));
+    app.connection.register_midi_in_callback(midi_in_sender);
     app.connection.send_message(protocol::maybe_request_state())?;
 
     loop {
+        match midi_in_receiver.recv_timeout(Duration::from_secs(1)) {
+            Ok(msg) => { app.state.midi_in_messages.push(msg.into()) }
+            Err(_) => {}
+        }
         terminal.draw(|mut frame| {
             let size = frame.size();
             let chunks = Layout::default()
@@ -110,7 +131,8 @@ fn main() -> Result<(), failure::Error> {
                 .borders(Borders::ALL)
                 .render(&mut frame, size);
 
-            let events = app.midi_in_messages.iter().map(|&event| Text::raw(event));
+            let events = app.state.midi_in_messages
+                .iter().map(|event| Text::raw(event));
             List::new(events)
                 .block(
                     Block::default()
