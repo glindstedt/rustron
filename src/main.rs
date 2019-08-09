@@ -533,6 +533,35 @@ pub fn restore_default_settings() -> Vec<u8> {
     wrapped_message
 }
 
+
+// INPUT DOCUMENTATION
+
+// Possibly tuner values plus other stuff:
+// Header:
+// 28 00 72 01
+//
+// Payload:
+// 8 hex values (16 digits)
+// 8 hex values (16 digits)
+//
+// within the payloads, the first hex changes often,
+// the second sometimes, and the last one sometimes
+
+// unknown stuff
+// possibly settings state?
+// 28 00 06 01
+// 00 01 00 00 02 31 08 58
+// 46 00 00 00 00 00 00 00
+// 7f 2f 00 00 00 00 00 01
+//
+// Seems like this is an answer to the app sending a message with '28 7f 05'
+
+// Probably confirmation that OSC 1 Blend mode was set to SWITCH (28 7f 0a 20 01)
+// 28 00 5a 01 20 01
+// Probably confirmation that OSC 1 Blend mode was set to BLEND (28 7f 0a 20 00)
+// 28 00 5a 01 20 00
+
+
 // ========================== OTHER STUFF ======================
 pub trait Neutron {
     fn port_count(&self) -> usize;
