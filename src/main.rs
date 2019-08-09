@@ -15,6 +15,7 @@ use tui::widgets::{Block, Borders, List, Text, Widget};
 
 use crate::events::{Event, Events};
 use crate::protocol::wrap_message;
+use std::fmt::Display;
 
 mod events;
 mod protocol;
@@ -44,7 +45,7 @@ impl Connection {
 
     pub fn register_midi_in_callback(
         &mut self,
-        message_sender_channel: Sender<String>,
+        message_sender_channel: Sender<MidiPacket>,
     ) -> Result<(), failure::Error> {
         let input = MidiInput::new("Neutron").unwrap();
         let in_port = get_neutron_port(&input)?;
@@ -53,7 +54,7 @@ impl Connection {
             .connect(
                 in_port,
                 "neutron",
-                move |ts, msg, _| { message_sender_channel.send(hex::encode(msg)); },
+                move |ts, msg, _| { message_sender_channel.send(MidiPacket { timestamp: ts, message: msg.to_vec()}); },
                 (),
             )
             .map_err(|e| failure::err_msg(e.to_string()))
@@ -74,16 +75,39 @@ impl Connection {
     }
 }
 
+pub struct MidiPacket {
+    timestamp: u64,
+    message: Vec<u8>,
+}
+
+impl Display for MidiPacket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:.3} - {}", self.timestamp as f64 / 100_000.0, hex::encode(self.message.clone()))
+    }
+}
+
 pub struct State {
+    // MIDI connection returns timestamps in microseconds beginning "sometime" in the past
+    beginning_of_time: u64,
     // TODO will grow indefinitely, does it matter?
-    midi_in_messages: Vec<String>,
+    midi_in_messages: Vec<MidiPacket>,
 }
 
 impl State {
     pub fn new() -> State {
         State {
+            beginning_of_time: 0,
             midi_in_messages: Vec::new().into(),
         }
+    }
+
+    pub fn push(&mut self, mut packet: MidiPacket) {
+        // Adjust timestamps to the first packets timestamp
+        if self.beginning_of_time == 0 {
+            self.beginning_of_time = packet.timestamp;
+        }
+        packet.timestamp -= self.beginning_of_time;
+        self.midi_in_messages.push(packet);
     }
 }
 
@@ -114,12 +138,11 @@ fn main() -> Result<(), failure::Error> {
     let state = State::new();
 
     let app = &mut App::new(state)?;
-    app.state.midi_in_messages.push(String::from("Hello World!"));
     app.connection.register_midi_in_callback(midi_in_sender);
 
     loop {
         match midi_in_receiver.try_recv() {
-            Ok(msg) => { app.state.midi_in_messages.push(msg.into()) }
+            Ok(msg) => { app.state.push(msg.into()) }
             Err(_) => {}
         }
         terminal.draw(|mut frame| {
@@ -139,7 +162,7 @@ fn main() -> Result<(), failure::Error> {
             let message_count = app.state.midi_in_messages.len();
             let start_index = if message_count < buffer_height as usize { 0 } else { message_count - buffer_height as usize };
             let midi_messages = app.state.midi_in_messages[start_index..]
-                .iter().map(|event| Text::raw(event));
+                .iter().map(|event| Text::raw(event.to_string()));
             List::new(midi_messages)
                 .block(
                     Block::default()
