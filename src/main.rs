@@ -1,18 +1,19 @@
 use std::io;
 use std::thread::sleep;
 use std::time::Duration;
+
+use midir::{
+    ConnectError, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, PortInfoError,
+};
 use termion::event::Key;
 use termion::raw::IntoRawMode;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
-use tui::widgets::{Block, Borders, List, Text, Widget};
 use tui::Terminal;
+use tui::widgets::{Block, Borders, List, Text, Widget};
 
 use crate::events::{Event, Events};
 use crate::protocol::wrap_message;
-use midir::{
-    ConnectError, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, PortInfoError,
-};
 
 mod events;
 mod protocol;
@@ -20,10 +21,6 @@ mod protocol;
 pub struct Connection {
     midi_out: Option<MidiOutputConnection>,
     midi_in: Option<MidiInputConnection<()>>,
-}
-
-pub fn handle_midi_message(timestamp: u64, message: &[u8]) {
-    print!("{}", hex::encode(message))
 }
 
 impl Connection {
@@ -49,7 +46,7 @@ impl Connection {
             .connect(
                 in_port,
                 "neutron",
-                |ts, msg, _| handle_midi_message(ts, msg),
+                |ts, msg, _| print!("{}", hex::encode(msg)),
                 (),
             )
             .map_err(|_| failure::err_msg("Could not connect MIDI in to Neutron"))
@@ -57,18 +54,34 @@ impl Connection {
 
         Ok(())
     }
+
+    pub fn send_message(&mut self, message: Vec<u8>) -> Result<(), failure::Error> {
+        match &mut self.midi_out {
+            Some(out) => out.send(&message)
+                .map_err(|e| failure::err_msg("")),
+            None => Err(failure::err_msg("No connection established.")),
+        }
+    }
 }
 
 pub struct App<'a> {
-    //    midi_out: MidiOutputConnection,
+    connection: Connection,
     midi_in_messages: Vec<&'a str>,
 }
 
 impl<'a> App<'a> {
     pub fn new() -> Result<App<'a>, failure::Error> {
         Ok(App {
+            connection: Connection::new().into(),
             midi_in_messages: Vec::new().into(),
         })
+    }
+
+    pub fn connect(&mut self) -> Result<(), failure::Error> {
+        if self.connection.midi_out.is_none() && self.connection.midi_in.is_none() {
+            self.connection.open()?
+        }
+        Ok(())
     }
 }
 
@@ -79,15 +92,11 @@ fn main() -> Result<(), failure::Error> {
 
     let events = Events::new();
 
-    let mut conn = Connection::new();
-    conn.open()?;
-    conn.midi_out
-        .unwrap()
-        .send(&protocol::maybe_request_state())?;
     let app = &mut App::new()?;
     app.midi_in_messages.push("Hello World!");
+    app.connect();
+    app.connection.send_message(protocol::maybe_request_state())?;
 
-    // communicate();
     loop {
         terminal.draw(|mut frame| {
             let size = frame.size();
@@ -122,26 +131,6 @@ fn main() -> Result<(), failure::Error> {
     }
     Ok(())
 }
-
-//pub fn communicate() -> Result<&'static str, Box<dyn Error>> {
-//    let output = MidiOutput::new("Neutron").unwrap();
-//
-//    let out_port = get_neutron_port(&output)?;
-//
-//    let input = MidiInput::new("Neutron").unwrap();
-//
-//    let in_port = get_neutron_port(&input)?;
-//
-//    let mut conn_out = output.connect(out_port, "neutron")?;
-//
-//    let mut result = conn_out.send(&turn_on_paraphonic_mode());
-//    result.map_err(|e| println!("{}", e));
-//    sleep(Duration::from_millis(5000));
-//    result = conn_out.send(&turn_off_paraphonic_mode());
-//    result.map_err(|e| println!("{}", e));
-//
-//    Ok("foo")
-//}
 
 // ========================== OTHER STUFF ======================
 pub trait Neutron {
