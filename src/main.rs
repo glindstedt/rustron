@@ -20,6 +20,7 @@ mod events;
 mod protocol;
 
 pub struct Connection {
+    // TODO what about closing connections?
     midi_out: Option<MidiOutputConnection>,
     midi_in: Option<MidiInputConnection<()>>,
 }
@@ -112,10 +113,9 @@ fn main() -> Result<(), failure::Error> {
     let app = &mut App::new(state)?;
     app.state.midi_in_messages.push(String::from("Hello World!"));
     app.connection.register_midi_in_callback(midi_in_sender);
-    app.connection.send_message(protocol::maybe_request_state())?;
 
     loop {
-        match midi_in_receiver.recv_timeout(Duration::from_secs(1)) {
+        match midi_in_receiver.try_recv() {
             Ok(msg) => { app.state.midi_in_messages.push(msg.into()) }
             Err(_) => {}
         }
@@ -144,8 +144,12 @@ fn main() -> Result<(), failure::Error> {
 
         match events.next()? {
             Event::Input(key) => {
-                if key == Key::Char('q') {
-                    break;
+                match key {
+                    Key::Char('q') => break,
+                    Key::Char('s') => app.connection.send_message(protocol::maybe_request_state())?,
+                    Key::Char('P') => app.connection.send_message(protocol::turn_on_paraphonic_mode())?,
+                    Key::Char('p') => app.connection.send_message(protocol::turn_off_paraphonic_mode())?,
+                    _ => {},
                 }
             }
             _ => {}
