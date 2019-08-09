@@ -75,6 +75,7 @@ impl Connection {
 }
 
 pub struct State {
+    // TODO will grow indefinitely, does it matter?
     midi_in_messages: Vec<String>,
 }
 
@@ -104,8 +105,10 @@ fn main() -> Result<(), failure::Error> {
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    terminal.hide_cursor();
+    terminal.clear();
 
-    let events = Events::new();
+    let key_events = Events::new();
 
     let (midi_in_sender, midi_in_receiver) = channel();
     let state = State::new();
@@ -122,18 +125,22 @@ fn main() -> Result<(), failure::Error> {
         terminal.draw(|mut frame| {
             let size = frame.size();
             let chunks = Layout::default()
-                .direction(Direction::Vertical)
+                .direction(Direction::Horizontal)
                 .margin(1)
                 .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
                 .split(size);
             Block::default()
-                .title("Some Title")
+                .title("Rustron")
                 .borders(Borders::ALL)
                 .render(&mut frame, size);
 
-            let events = app.state.midi_in_messages
+            // Primitive scrolling logic
+            let buffer_height = chunks[1].height;
+            let message_count = app.state.midi_in_messages.len();
+            let start_index = if message_count < buffer_height as usize { 0 } else { message_count - buffer_height as usize };
+            let midi_messages = app.state.midi_in_messages[start_index..]
                 .iter().map(|event| Text::raw(event));
-            List::new(events)
+            List::new(midi_messages)
                 .block(
                     Block::default()
                         .title("MIDI Sysex Input")
@@ -142,7 +149,7 @@ fn main() -> Result<(), failure::Error> {
                 .render(&mut frame, chunks[1]);
         });
 
-        match events.next()? {
+        match key_events.next()? {
             Event::Input(key) => {
                 match key {
                     Key::Char('q') => break,
@@ -188,7 +195,6 @@ pub fn get_neutron_port(midi_output: &dyn Neutron) -> Result<usize, failure::Err
     for i in 0..midi_output.port_count() {
         match midi_output.port_name(i).unwrap().starts_with("Neutron") {
             true => {
-                println!("FOUND IT: {}", i);
                 out_port = Some(i);
                 break;
             }
