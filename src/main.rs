@@ -17,9 +17,6 @@ mod protocol;
 mod midi;
 
 pub struct State {
-    // TODO this thimestamp value seems to be crap, maybe just throw away...
-    // MIDI connection returns timestamps in microseconds beginning "sometime" in the past
-    beginning_of_time: u64,
     // TODO will grow indefinitely, does it matter?
     midi_in_messages: Vec<midi::MidiPacket>,
 }
@@ -27,17 +24,11 @@ pub struct State {
 impl State {
     pub fn new() -> State {
         State {
-            beginning_of_time: 0,
             midi_in_messages: Vec::new().into(),
         }
     }
 
     pub fn push(&mut self, mut packet: midi::MidiPacket) {
-        // Adjust timestamps to the first packets timestamp
-        if self.beginning_of_time == 0 {
-            self.beginning_of_time = packet.timestamp();
-        }
-        packet.set_timestamp(packet.timestamp() - self.beginning_of_time);
         self.midi_in_messages.push(packet);
     }
 }
@@ -58,7 +49,7 @@ impl App {
     }
 
     pub fn command(&mut self, message: Vec<u8>) -> Result<(), failure::Error> {
-        self.command_history.push(MidiPacket::new(0, message.as_slice()));
+        self.command_history.push(MidiPacket::new(message.as_slice()));
         self.connection.send_message(message)
     }
 }

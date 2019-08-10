@@ -8,19 +8,15 @@ use midir::{
 use crate::protocol;
 
 pub struct MidiPacket {
-    timestamp: u64,
     message: Vec<u8>,
 }
 
 impl MidiPacket {
-    pub fn new(timestamp: u64, message: &[u8]) -> MidiPacket {
+    pub fn new(message: &[u8]) -> MidiPacket {
         MidiPacket {
-            timestamp,
             message: message.to_vec(),
         }
     }
-    pub fn timestamp(&self) -> u64 { self.timestamp }
-    pub fn set_timestamp(&mut self, timestamp: u64) { self.timestamp = timestamp }
     pub fn message(&self) -> &[u8] { self.message.as_slice() }
 }
 
@@ -36,7 +32,7 @@ impl Display for MidiPacket {
         } else {
             packet_string.push_str(hex::encode(&self.message).as_str());
         }
-        write!(f, "{:.3} - {}", self.timestamp as f64 / 100_000.0, packet_string)
+        write!(f, "{}", packet_string)
     }
 }
 
@@ -75,7 +71,7 @@ impl Connection {
             .connect(
                 in_port,
                 "neutron",
-                move |ts, msg, _| { message_sender_channel.send(MidiPacket { timestamp: ts, message: msg.to_vec() }); },
+                move |_, msg, _| { message_sender_channel.send(MidiPacket { message: msg.to_vec() }); },
                 (),
             )
             .map_err(|e| failure::err_msg(e.to_string()))
