@@ -5,12 +5,20 @@ use midir::{
     ConnectError, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, PortInfoError,
 };
 
+use crate::protocol;
+
 pub struct MidiPacket {
     timestamp: u64,
     message: Vec<u8>,
 }
 
 impl MidiPacket {
+    pub fn new(timestamp: u64, message: &[u8]) -> MidiPacket {
+        MidiPacket {
+            timestamp,
+            message: message.to_vec(),
+        }
+    }
     pub fn timestamp(&self) -> u64 { self.timestamp }
     pub fn set_timestamp(&mut self, timestamp: u64) { self.timestamp = timestamp }
     pub fn message(&self) -> &[u8] { self.message.as_slice() }
@@ -18,7 +26,17 @@ impl MidiPacket {
 
 impl Display for MidiPacket {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:.3} - {}", self.timestamp as f64 / 100_000.0, hex::encode(self.message.clone()))
+        // Format into 8 byte batches
+        let mut packet_string = String::new();
+        if self.message.starts_with(&protocol::PACKET_HEADER)
+            && self.message.ends_with([protocol::SYSEX_EOX].as_ref()) {
+            packet_string.push_str("B[ ");
+            packet_string.push_str(hex::encode(&self.message[protocol::PACKET_HEADER.len()..]).as_str());
+            packet_string.push_str(" ]");
+        } else {
+            packet_string.push_str(hex::encode(&self.message).as_str());
+        }
+        write!(f, "{:.3} - {}", self.timestamp as f64 / 100_000.0, packet_string)
     }
 }
 

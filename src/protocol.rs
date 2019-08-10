@@ -1,7 +1,15 @@
-const SYSEX_MESSAGE_START: u8 = 0xf0;
-const SYSEX_EOX: u8 = 0xf7;
-const BEHRINGER_MANUFACTURER: [u8; 3] = [0x00, 0x20, 0x32];
-const MAYBE_STATIC: [u8; 3] = [0x28, 0x7f, 0x0a];
+pub const SYSEX_MESSAGE_START: u8 = 0xf0;
+pub const SYSEX_EOX: u8 = 0xf7;
+pub const BEHRINGER_MANUFACTURER: [u8; 3] = [0x00, 0x20, 0x32];
+pub const MAYBE_STATIC: [u8; 3] = [0x28, 0x7f, 0x0a];
+
+pub const PACKET_HEADER: [u8; 5] = [
+    SYSEX_MESSAGE_START,
+    BEHRINGER_MANUFACTURER[0],
+    BEHRINGER_MANUFACTURER[1],
+    BEHRINGER_MANUFACTURER[2],
+    MAYBE_STATIC[0], // Possibly device model identifier for the neutron?
+];
 
 pub fn wrap_message(message: Vec<u8>) -> Vec<u8> {
     let mut wrapped_message = vec![

@@ -10,6 +10,7 @@ use tui::Terminal;
 use tui::widgets::{Block, Borders, List, Text, Widget};
 
 use crate::events::{Event, Events};
+use crate::midi::{MidiPacket, Connection};
 
 mod events;
 mod protocol;
@@ -44,6 +45,7 @@ impl State {
 pub struct App {
     connection: midi::Connection,
     state: State,
+    command_history: Vec<midi::MidiPacket>,
 }
 
 impl App {
@@ -51,7 +53,13 @@ impl App {
         Ok(App {
             connection: midi::Connection::new().into(),
             state,
+            command_history: Vec::new().into(),
         })
+    }
+
+    pub fn command(&mut self, message: Vec<u8>) -> Result<(), failure::Error> {
+        self.command_history.push(MidiPacket::new(0, message.as_slice()));
+        self.connection.send_message(message)
     }
 }
 
@@ -87,6 +95,27 @@ fn main() -> Result<(), failure::Error> {
                 .borders(Borders::ALL)
                 .render(&mut frame, size);
 
+            {
+                // Left half
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .margin(1)
+                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+                    .split(chunks[0]);
+                let buffer_height = chunks[1].height;
+                let message_count = app.command_history.len();
+                let start_index = if message_count < buffer_height as usize { 0 } else { message_count - buffer_height as usize };
+                let command_history = app.command_history[start_index..]
+                    .iter().map(|event| Text::raw(event.to_string()));
+                List::new(command_history)
+                    .block(
+                        Block::default()
+                            .title("Command History")
+                            .borders(Borders::ALL)
+                    )
+                    .render(&mut frame, chunks[1]);
+            }
+
             // Primitive scrolling logic
             let buffer_height = chunks[1].height;
             let message_count = app.state.midi_in_messages.len();
@@ -106,9 +135,9 @@ fn main() -> Result<(), failure::Error> {
             Event::Input(key) => {
                 match key {
                     Key::Char('q') => break,
-                    Key::Char('s') => app.connection.send_message(protocol::maybe_request_state())?,
-                    Key::Char('P') => app.connection.send_message(protocol::turn_on_paraphonic_mode())?,
-                    Key::Char('p') => app.connection.send_message(protocol::turn_off_paraphonic_mode())?,
+                    Key::Char('s') => app.command(protocol::maybe_request_state())?,
+                    Key::Char('P') => app.command(protocol::turn_on_paraphonic_mode())?,
+                    Key::Char('p') => app.command(protocol::turn_off_paraphonic_mode())?,
                     _ => {}
                 }
             }
