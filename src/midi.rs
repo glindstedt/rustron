@@ -7,6 +7,22 @@ use midir::{
 
 use crate::protocol;
 
+pub trait SysExPacket {
+    fn is_sysex(&self) -> bool;
+    fn manufacturer(&self) -> &str;
+}
+
+impl SysExPacket for [u8] {
+    fn is_sysex(&self) -> bool {
+        let foo: u8 = self[0];
+        self[0] == protocol::SYSEX_MESSAGE_START && self[self.len()-1] == protocol::SYSEX_EOX
+    }
+
+    fn manufacturer(&self) -> &str {
+        "Unknown".as_ref()
+    }
+}
+
 pub struct MidiPacket {
     message: Vec<u8>,
 }
@@ -37,15 +53,15 @@ impl Display for MidiPacket {
 }
 
 
-pub struct Connection {
+pub struct MidiConnection {
     // TODO what about closing connections?
     midi_out: Option<MidiOutputConnection>,
     midi_in: Option<MidiInputConnection<()>>,
 }
 
-impl Connection {
-    pub fn new() -> Connection {
-        Connection {
+impl MidiConnection {
+    pub fn new() -> MidiConnection {
+        MidiConnection {
             midi_out: None,
             midi_in: None,
         }
@@ -93,7 +109,7 @@ impl Connection {
 }
 
 // ========================== OTHER STUFF ======================
-pub trait Neutron {
+trait Neutron {
     fn port_count(&self) -> usize;
     fn port_name(&self, port_number: usize) -> Result<String, PortInfoError>;
 }
@@ -117,7 +133,7 @@ impl Neutron for MidiInput {
     }
 }
 
-pub fn get_neutron_port(midi_output: &dyn Neutron) -> Result<usize, failure::Error> {
+fn get_neutron_port(midi_output: &dyn Neutron) -> Result<usize, failure::Error> {
     let mut out_port: Option<usize> = None;
     for i in 0..midi_output.port_count() {
         match midi_output.port_name(i).unwrap().starts_with("Neutron") {

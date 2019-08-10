@@ -10,7 +10,7 @@ use tui::Terminal;
 use tui::widgets::{Block, Borders, List, Text, Widget};
 
 use crate::events::{Event, Events};
-use crate::midi::{MidiPacket, Connection};
+use crate::midi::{MidiPacket, MidiConnection};
 
 mod events;
 mod protocol;
@@ -34,7 +34,7 @@ impl State {
 }
 
 pub struct App {
-    connection: midi::Connection,
+    connection: midi::MidiConnection,
     state: State,
     command_history: Vec<midi::MidiPacket>,
 }
@@ -42,7 +42,7 @@ pub struct App {
 impl App {
     pub fn new(state: State) -> Result<App, failure::Error> {
         Ok(App {
-            connection: midi::Connection::new().into(),
+            connection: midi::MidiConnection::new().into(),
             state,
             command_history: Vec::new().into(),
         })
