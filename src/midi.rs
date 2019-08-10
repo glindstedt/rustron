@@ -6,20 +6,21 @@ use midir::{
 };
 
 use crate::protocol;
+use crate::protocol::{BEHRINGER_MANUFACTURER, format_behringer_packet, is_behringer_packet};
 
 pub trait SysExPacket {
     fn is_sysex(&self) -> bool;
-    fn manufacturer(&self) -> &str;
+    fn sysex_manufacturer(&self) -> &[u8];
 }
 
 impl SysExPacket for [u8] {
     fn is_sysex(&self) -> bool {
         let foo: u8 = self[0];
-        self[0] == protocol::SYSEX_MESSAGE_START && self[self.len()-1] == protocol::SYSEX_EOX
+        self[0] == protocol::SYSEX_MESSAGE_START && self[self.len() - 1] == protocol::SYSEX_EOX
     }
 
-    fn manufacturer(&self) -> &str {
-        "Unknown".as_ref()
+    fn sysex_manufacturer(&self) -> &[u8] {
+        &self[1..4]
     }
 }
 
@@ -39,15 +40,12 @@ impl MidiPacket {
 impl Display for MidiPacket {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Format into 8 byte batches
-        let mut packet_string = String::new();
-        if self.message.starts_with(&protocol::PACKET_HEADER)
-            && self.message.ends_with([protocol::SYSEX_EOX].as_ref()) {
-            packet_string.push_str("B[ ");
-            packet_string.push_str(hex::encode(&self.message[protocol::PACKET_HEADER.len()..]).as_str());
-            packet_string.push_str(" ]");
+        let bytes = self.message.as_slice();
+        let packet_string = if is_behringer_packet(bytes) {
+            format_behringer_packet(bytes)
         } else {
-            packet_string.push_str(hex::encode(&self.message).as_str());
-        }
+            hex::encode(&self.message)
+        };
         write!(f, "{}", packet_string)
     }
 }

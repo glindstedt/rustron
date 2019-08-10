@@ -1,15 +1,29 @@
+use crate::midi::SysExPacket;
+
 pub const SYSEX_MESSAGE_START: u8 = 0xf0;
 pub const SYSEX_EOX: u8 = 0xf7;
 pub const BEHRINGER_MANUFACTURER: [u8; 3] = [0x00, 0x20, 0x32];
+pub const PROBABLY_NEUTRON_DEVICE: u8 = 0x28;
+pub const PROBABLY_COMMAND_SEQUENCE: [u8; 2] = [0x7f, 0x0a];
 pub const MAYBE_STATIC: [u8; 3] = [0x28, 0x7f, 0x0a];
 
-pub const PACKET_HEADER: [u8; 5] = [
-    SYSEX_MESSAGE_START,
-    BEHRINGER_MANUFACTURER[0],
-    BEHRINGER_MANUFACTURER[1],
-    BEHRINGER_MANUFACTURER[2],
-    MAYBE_STATIC[0], // Possibly device model identifier for the neutron?
-];
+pub fn is_behringer_packet(bytes: &[u8]) -> bool {
+    bytes.is_sysex() && bytes.sysex_manufacturer() == BEHRINGER_MANUFACTURER
+}
+
+pub fn format_behringer_packet(bytes: &[u8]) -> String {
+    let device = bytes[4];
+    let mut buffer = String::new();
+        if device == PROBABLY_NEUTRON_DEVICE {
+            buffer.push_str("N ");
+            buffer.push_str(hex::encode(&bytes[5..]).as_str());
+        } else {
+            buffer.push_str(hex::encode([bytes[4]].as_ref()).as_str());
+            buffer.push_str(" ");
+            buffer.push_str(hex::encode(&bytes[5..]).as_str());
+        }
+    format!("B[ {} ]", buffer)
+}
 
 pub fn wrap_message(message: Vec<u8>) -> Vec<u8> {
     let mut wrapped_message = vec![
