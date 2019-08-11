@@ -2,11 +2,11 @@ use std::fmt::Display;
 use std::sync::mpsc::Sender;
 
 use midir::{
-    ConnectError, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, PortInfoError,
+    MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, PortInfoError,
 };
 
 use crate::protocol;
-use crate::protocol::{format_behringer_packet, is_behringer_packet, BEHRINGER_MANUFACTURER};
+use crate::protocol::{format_behringer_packet, is_behringer_packet};
 
 pub trait SysExPacket {
     fn is_sysex(&self) -> bool;
@@ -15,7 +15,6 @@ pub trait SysExPacket {
 
 impl SysExPacket for [u8] {
     fn is_sysex(&self) -> bool {
-        let foo: u8 = self[0];
         self[0] == protocol::SYSEX_MESSAGE_START && self[self.len() - 1] == protocol::SYSEX_EOX
     }
 

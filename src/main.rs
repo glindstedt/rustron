@@ -1,6 +1,5 @@
 use std::io;
 use std::sync::mpsc::channel;
-use std::thread::sleep;
 
 use termion::event::Key;
 use termion::raw::IntoRawMode;
@@ -10,7 +9,6 @@ use tui::widgets::{Block, Borders, List, Text, Widget};
 use tui::Terminal;
 
 use crate::events::{Event, Events};
-use crate::midi::{MidiConnection, MidiPacket};
 
 mod events;
 mod midi;
@@ -28,7 +26,7 @@ impl State {
         }
     }
 
-    pub fn push(&mut self, mut packet: midi::MidiPacket) {
+    pub fn push(&mut self, packet: midi::MidiPacket) {
         self.midi_in_messages.push(packet);
     }
 }
@@ -49,7 +47,7 @@ impl App {
     }
 
     pub fn command(&mut self, message: &[u8]) -> Result<(), failure::Error> {
-        self.command_history.push(MidiPacket::new(message));
+        self.command_history.push(midi::MidiPacket::new(message));
         self.connection.send_message(message)
     }
 }
@@ -58,8 +56,8 @@ fn main() -> Result<(), failure::Error> {
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    terminal.hide_cursor();
-    terminal.clear();
+    terminal.hide_cursor()?;
+    terminal.clear()?;
 
     let key_events = Events::new();
 
@@ -67,7 +65,7 @@ fn main() -> Result<(), failure::Error> {
     let state = State::new();
 
     let app = &mut App::new(state)?;
-    app.connection.register_midi_in_channel(midi_in_sender);
+    app.connection.register_midi_in_channel(midi_in_sender)?;
 
     loop {
         match midi_in_receiver.try_recv() {
@@ -130,7 +128,7 @@ fn main() -> Result<(), failure::Error> {
                         .borders(Borders::ALL),
                 )
                 .render(&mut frame, chunks[1]);
-        });
+        })?;
 
         match key_events.next()? {
             Event::Input(key) => match key {
