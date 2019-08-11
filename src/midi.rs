@@ -6,7 +6,7 @@ use midir::{
 };
 
 use crate::protocol;
-use crate::protocol::{BEHRINGER_MANUFACTURER, format_behringer_packet, is_behringer_packet};
+use crate::protocol::{format_behringer_packet, is_behringer_packet, BEHRINGER_MANUFACTURER};
 
 pub trait SysExPacket {
     fn is_sysex(&self) -> bool;
@@ -34,7 +34,9 @@ impl MidiPacket {
             message: message.to_vec(),
         }
     }
-    pub fn message(&self) -> &[u8] { self.message.as_slice() }
+    pub fn message(&self) -> &[u8] {
+        self.message.as_slice()
+    }
 }
 
 impl Display for MidiPacket {
@@ -49,7 +51,6 @@ impl Display for MidiPacket {
         write!(f, "{}", packet_string)
     }
 }
-
 
 pub struct MidiConnection {
     // TODO what about closing connections?
@@ -68,9 +69,7 @@ impl MidiConnection {
     fn connect_midi_out(&mut self) -> Result<(), failure::Error> {
         let output = MidiOutput::new("Neutron").unwrap();
         let out_port = get_neutron_port(&output)?;
-        self.midi_out = output
-            .connect(out_port, "neutron")
-            .ok();
+        self.midi_out = output.connect(out_port, "neutron").ok();
         Ok(())
     }
 
@@ -85,7 +84,11 @@ impl MidiConnection {
             .connect(
                 in_port,
                 "neutron",
-                move |_, msg, _| { message_sender_channel.send(MidiPacket { message: msg.to_vec() }); },
+                move |_, msg, _| {
+                    message_sender_channel.send(MidiPacket {
+                        message: msg.to_vec(),
+                    });
+                },
                 (),
             )
             .map_err(|e| failure::err_msg(e.to_string()))
@@ -94,12 +97,13 @@ impl MidiConnection {
         Ok(())
     }
 
-    pub fn send_message(&mut self, message: Vec<u8>) -> Result<(), failure::Error> {
+    pub fn send_message(&mut self, message: &[u8]) -> Result<(), failure::Error> {
         if self.midi_out.is_none() {
             self.connect_midi_out()?;
         }
         match &mut self.midi_out {
-            Some(out) => out.send(&message)
+            Some(out) => out
+                .send(message)
                 .map_err(|e| failure::err_msg(e.to_string())),
             None => Err(failure::err_msg("No connection established.")),
         }

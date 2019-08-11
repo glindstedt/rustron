@@ -14,14 +14,14 @@ pub fn is_behringer_packet(bytes: &[u8]) -> bool {
 pub fn format_behringer_packet(bytes: &[u8]) -> String {
     let device = bytes[4];
     let mut buffer = String::new();
-        if device == PROBABLY_NEUTRON_DEVICE {
-            buffer.push_str("N ");
-            buffer.push_str(hex::encode(&bytes[5..]).as_str());
-        } else {
-            buffer.push_str(hex::encode([bytes[4]].as_ref()).as_str());
-            buffer.push_str(" ");
-            buffer.push_str(hex::encode(&bytes[5..]).as_str());
-        }
+    if device == PROBABLY_NEUTRON_DEVICE {
+        buffer.push_str("N ");
+        buffer.push_str(hex::encode(&bytes[5..]).as_str());
+    } else {
+        buffer.push_str(hex::encode([bytes[4]].as_ref()).as_str());
+        buffer.push_str(" ");
+        buffer.push_str(hex::encode(&bytes[5..]).as_str());
+    }
     format!("B[ {} ]", buffer)
 }
 
@@ -48,8 +48,6 @@ pub fn turn_off_paraphonic_mode() -> Vec<u8> {
     wrap_message(vec![0x0f, 0x00])
 }
 
-// ======================= UNVERIFIED =======================
-
 pub fn osc_sync_on() -> Vec<u8> {
     wrap_message(vec![0x0e, 0x01])
 }
@@ -57,6 +55,8 @@ pub fn osc_sync_on() -> Vec<u8> {
 pub fn osc_sync_off() -> Vec<u8> {
     wrap_message(vec![0x0e, 0x00])
 }
+
+// ======================= UNVERIFIED =======================
 
 pub fn osc_key_split() -> Vec<u8> {
     // TODO parameter

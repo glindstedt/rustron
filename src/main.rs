@@ -6,15 +6,15 @@ use termion::event::Key;
 use termion::raw::IntoRawMode;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
-use tui::Terminal;
 use tui::widgets::{Block, Borders, List, Text, Widget};
+use tui::Terminal;
 
 use crate::events::{Event, Events};
-use crate::midi::{MidiPacket, MidiConnection};
+use crate::midi::{MidiConnection, MidiPacket};
 
 mod events;
-mod protocol;
 mod midi;
+mod protocol;
 
 pub struct State {
     // TODO will grow indefinitely, does it matter?
@@ -48,8 +48,8 @@ impl App {
         })
     }
 
-    pub fn command(&mut self, message: Vec<u8>) -> Result<(), failure::Error> {
-        self.command_history.push(MidiPacket::new(message.as_slice()));
+    pub fn command(&mut self, message: &[u8]) -> Result<(), failure::Error> {
+        self.command_history.push(MidiPacket::new(message));
         self.connection.send_message(message)
     }
 }
@@ -71,7 +71,7 @@ fn main() -> Result<(), failure::Error> {
 
     loop {
         match midi_in_receiver.try_recv() {
-            Ok(msg) => { app.state.push(msg.into()) }
+            Ok(msg) => app.state.push(msg.into()),
             Err(_) => {}
         }
         terminal.draw(|mut frame| {
@@ -95,14 +95,19 @@ fn main() -> Result<(), failure::Error> {
                     .split(chunks[0]);
                 let buffer_height = chunks[1].height;
                 let message_count = app.command_history.len();
-                let start_index = if message_count < buffer_height as usize { 0 } else { message_count - buffer_height as usize };
+                let start_index = if message_count < buffer_height as usize {
+                    0
+                } else {
+                    message_count - buffer_height as usize
+                };
                 let command_history = app.command_history[start_index..]
-                    .iter().map(|event| Text::raw(event.to_string()));
+                    .iter()
+                    .map(|event| Text::raw(event.to_string()));
                 List::new(command_history)
                     .block(
                         Block::default()
                             .title("Command History")
-                            .borders(Borders::ALL)
+                            .borders(Borders::ALL),
                     )
                     .render(&mut frame, chunks[1]);
             }
@@ -110,9 +115,14 @@ fn main() -> Result<(), failure::Error> {
             // Primitive scrolling logic
             let buffer_height = chunks[1].height;
             let message_count = app.state.midi_in_messages.len();
-            let start_index = if message_count < buffer_height as usize { 0 } else { message_count - buffer_height as usize };
+            let start_index = if message_count < buffer_height as usize {
+                0
+            } else {
+                message_count - buffer_height as usize
+            };
             let midi_messages = app.state.midi_in_messages[start_index..]
-                .iter().map(|event| Text::raw(event.to_string()));
+                .iter()
+                .map(|event| Text::raw(event.to_string()));
             List::new(midi_messages)
                 .block(
                     Block::default()
@@ -123,15 +133,15 @@ fn main() -> Result<(), failure::Error> {
         });
 
         match key_events.next()? {
-            Event::Input(key) => {
-                match key {
-                    Key::Char('q') => break,
-                    Key::Char('s') => app.command(protocol::maybe_request_state())?,
-                    Key::Char('P') => app.command(protocol::turn_on_paraphonic_mode())?,
-                    Key::Char('p') => app.command(protocol::turn_off_paraphonic_mode())?,
-                    _ => {}
-                }
-            }
+            Event::Input(key) => match key {
+                Key::Char('q') => break,
+                Key::Char('s') => app.command(protocol::maybe_request_state().as_slice())?,
+                Key::Char('P') => app.command(protocol::turn_on_paraphonic_mode().as_slice())?,
+                Key::Char('p') => app.command(protocol::turn_off_paraphonic_mode().as_slice())?,
+                Key::Char('Y') => app.command(protocol::osc_sync_on().as_slice())?,
+                Key::Char('y') => app.command(protocol::osc_sync_off().as_slice())?,
+                _ => {}
+            },
             _ => {}
         }
     }
