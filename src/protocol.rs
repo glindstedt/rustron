@@ -40,21 +40,87 @@ pub fn wrap_message(message: Vec<u8>) -> Vec<u8> {
     wrapped_message
 }
 
-pub fn turn_on_paraphonic_mode() -> Vec<u8> {
-    wrap_message(vec![0x0f, 0x01])
+pub enum Toggle {
+    On,
+    Off,
 }
 
-pub fn turn_off_paraphonic_mode() -> Vec<u8> {
-    wrap_message(vec![0x0f, 0x00])
+fn toggle_value(t: Toggle) -> u8 {
+    match t {
+        Toggle::On => 0x01,
+        Toggle::Off => 0x00,
+    }
 }
 
-pub fn osc_sync_on() -> Vec<u8> {
-    wrap_message(vec![0x0e, 0x01])
+pub fn toggle_paraphonic_mode(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x0f, toggle_value(t)])
 }
 
-pub fn osc_sync_off() -> Vec<u8> {
-    wrap_message(vec![0x0e, 0x00])
+pub fn toggle_osc_sync(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x0e, toggle_value(t)])
 }
+
+// OSC 1
+
+pub fn toggle_osc_1_blend_mode(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x20, toggle_value(t)])
+}
+
+pub fn osc_1_range_32() -> Vec<u8> {
+    wrap_message(vec![0x26, 0x00])
+}
+
+pub fn osc_1_range_16() -> Vec<u8> {
+    wrap_message(vec![0x26, 0x01])
+}
+
+pub fn osc_1_range_8() -> Vec<u8> {
+    wrap_message(vec![0x26, 0x02])
+}
+
+pub fn osc_1_range_pm_10_oct() -> Vec<u8> {
+    wrap_message(vec![0x26, 0x03])
+}
+
+// OSC 2
+pub fn toggle_osc_2_blend_mode(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x21, toggle_value(t)])
+}
+
+pub fn osc_2_range_32() -> Vec<u8> {
+    wrap_message(vec![0x27, 0x00])
+}
+
+pub fn osc_2_range_16() -> Vec<u8> {
+    wrap_message(vec![0x27, 0x01])
+}
+
+pub fn osc_2_range_8() -> Vec<u8> {
+    wrap_message(vec![0x27, 0x02])
+}
+
+pub fn osc_2_range_pm_10_oct() -> Vec<u8> {
+    wrap_message(vec![0x27, 0x03])
+}
+
+// LFO
+pub fn toggle_lfo_blend_mode(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x30, toggle_value(t)])
+}
+
+pub fn toggle_lfo_key_sync(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x37, toggle_value(t)])
+}
+
+pub fn toggle_lfo_one_shot(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x31, toggle_value(t)])
+}
+
+// VCF
+pub fn toggle_vcf_key_tracking(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x11, toggle_value(t)])
+}
+
 
 // ======================= UNVERIFIED =======================
 
@@ -79,38 +145,8 @@ pub fn osc_key_split() -> Vec<u8> {
     wrap_message(vec![0x28, 0x00])
 }
 
-// OSC 1
-
-pub fn osc_1_blend_mode_switch() -> Vec<u8> {
-    wrap_message(vec![0x20, 0x01])
-}
-
-pub fn osc_1_blend_mode_blend() -> Vec<u8> {
-    wrap_message(vec![0x20, 0x00])
-}
-
-pub fn osc_1_tune_pot_bypass() -> Vec<u8> {
-    wrap_message(vec![0x22, 0x01])
-}
-
-pub fn osc_1_tune_pot_enable() -> Vec<u8> {
-    wrap_message(vec![0x22, 0x00])
-}
-
-pub fn osc_1_range_32() -> Vec<u8> {
-    wrap_message(vec![0x26, 0x00])
-}
-
-pub fn osc_1_range_16() -> Vec<u8> {
-    wrap_message(vec![0x26, 0x01])
-}
-
-pub fn osc_1_range_8() -> Vec<u8> {
-    wrap_message(vec![0x26, 0x02])
-}
-
-pub fn osc_1_range_pm_10_oct() -> Vec<u8> {
-    wrap_message(vec![0x26, 0x03])
+pub fn toggle_osc_1_tune_pot(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x22, toggle_value(t)])
 }
 
 pub fn osc_1_autoglide() -> Vec<u8> {
@@ -119,37 +155,8 @@ pub fn osc_1_autoglide() -> Vec<u8> {
     wrap_message(vec![0x24, 0x00])
 }
 
-// OSC 2
-pub fn osc_2_blend_mode_switch() -> Vec<u8> {
-    wrap_message(vec![0x21, 0x01])
-}
-
-pub fn osc_2_blend_mode_blend() -> Vec<u8> {
-    wrap_message(vec![0x21, 0x00])
-}
-
-pub fn osc_2_tune_pot_bypass() -> Vec<u8> {
-    wrap_message(vec![0x23, 0x01])
-}
-
-pub fn osc_2_tune_pot_enable() -> Vec<u8> {
-    wrap_message(vec![0x23, 0x00])
-}
-
-pub fn osc_2_range_32() -> Vec<u8> {
-    wrap_message(vec![0x27, 0x00])
-}
-
-pub fn osc_2_range_16() -> Vec<u8> {
-    wrap_message(vec![0x27, 0x01])
-}
-
-pub fn osc_2_range_8() -> Vec<u8> {
-    wrap_message(vec![0x27, 0x02])
-}
-
-pub fn osc_2_range_pm_10_oct() -> Vec<u8> {
-    wrap_message(vec![0x27, 0x03])
+pub fn toggle_osc_2_tune_pot(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x23, toggle_value(t)])
 }
 
 pub fn osc_2_autoglide() -> Vec<u8> {
@@ -158,53 +165,16 @@ pub fn osc_2_autoglide() -> Vec<u8> {
     wrap_message(vec![0x25, 0x00])
 }
 
-pub fn osc_2_key_track_hold() -> Vec<u8> {
-    wrap_message(vec![0x2a, 0x01])
+pub fn toggle_osc_2_key_track_hold(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x2a, toggle_value(t)])
 }
 
-pub fn osc_2_key_track_track() -> Vec<u8> {
-    wrap_message(vec![0x2a, 0x00])
+pub fn toggle_lfo_retrigger(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x3b, toggle_value(t)])
 }
 
-// LFO
-pub fn lfo_blend_mode_switch() -> Vec<u8> {
-    wrap_message(vec![0x30, 0x01])
-}
-
-pub fn lfo_blend_mode_blend() -> Vec<u8> {
-    wrap_message(vec![0x30, 0x00])
-}
-
-pub fn lfo_key_sync_on() -> Vec<u8> {
-    wrap_message(vec![0x37, 0x01])
-}
-
-pub fn lfo_key_sync_off() -> Vec<u8> {
-    wrap_message(vec![0x37, 0x00])
-}
-
-pub fn lfo_one_shot_on() -> Vec<u8> {
-    wrap_message(vec![0x31, 0x01])
-}
-
-pub fn lfo_one_shot_off() -> Vec<u8> {
-    wrap_message(vec![0x31, 0x00])
-}
-
-pub fn lfo_retrigger_on() -> Vec<u8> {
-    wrap_message(vec![0x3b, 0x01])
-}
-
-pub fn lfo_retrigger_off() -> Vec<u8> {
-    wrap_message(vec![0x3b, 0x00])
-}
-
-pub fn lfo_midi_sync_on() -> Vec<u8> {
-    wrap_message(vec![0x35, 0x01])
-}
-
-pub fn lfo_midi_sync_off() -> Vec<u8> {
-    wrap_message(vec![0x35, 0x00])
+pub fn toggle_lfo_midi_sync(t: Toggle) -> Vec<u8> {
+    wrap_message(vec![0x35, toggle_value(t)])
 }
 
 pub fn lfo_key_tracking() -> Vec<u8> {
@@ -263,15 +233,6 @@ pub fn lfo_phase_offset() -> Vec<u8> {
         0x38, 0x00, // Position
         0x00, // Offset
     ])
-}
-
-// VCF
-pub fn vcf_key_tracking_on() -> Vec<u8> {
-    wrap_message(vec![0x11, 0x01])
-}
-
-pub fn vcf_key_tracking_off() -> Vec<u8> {
-    wrap_message(vec![0x11, 0x00])
 }
 
 pub fn vcf_mod_depth() -> Vec<u8> {
