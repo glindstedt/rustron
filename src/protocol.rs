@@ -365,6 +365,9 @@ pub fn restore_default_settings() -> Vec<u8> {
 
 // INPUT DOCUMENTATION
 
+// Sent periodically (about once every second) by the neutron app, the neutron responds with one
+// long message of 33 bytes that seems to be the configuration state, followed by 24 messages of
+// 25 bytes with varying data. I assume this data is related to the tuners or possibly some clock
 pub fn maybe_request_state() -> Vec<u8> {
     let mut wrapped_message = vec![
         SYSEX_MESSAGE_START,
@@ -378,6 +381,34 @@ pub fn maybe_request_state() -> Vec<u8> {
     wrapped_message.push(SYSEX_EOX);
     wrapped_message
 }
+
+// F0 00 20 32 28 00 06 01  6B 02 00 00 02 31 08 59  46 00 00 00 00 00 00 00  7F 0F 00 00 00 00 00 01  F7
+
+// TEST
+// OSC SYNC OFF, PARAPHONIC MODE OFF
+// F0 00 20 32 28 00 06 01  6B 02 00 00 02 31 08 58  46 00 00 00 00 00 00 00  7F 0F 00 00 00 00 00 01  F7
+// OSC SYNC ON              |
+// F0 00 20 32 28 00 06 01  7B 02 00 00 02 31 08 58  46 00 00 00 00 00 00 00  7F 0F 00 00 00 00 00 01  F7
+// PARAPHONIC MODE ON                             |
+// F0 00 20 32 28 00 06 01  7B 02 00 00 02 31 08 59  46 00 00 00 00 00 00 00  7F 0F 00 00 00 00 00 01  F7
+
+
+// Maybe firmware version?
+// Only sent once when first connecting to the neutron
+pub fn maybe_request_state2() -> Vec<u8> {
+    let mut wrapped_message = vec![
+        SYSEX_MESSAGE_START,
+        BEHRINGER_MANUFACTURER[0],
+        BEHRINGER_MANUFACTURER[1],
+        BEHRINGER_MANUFACTURER[2],
+        MAYBE_STATIC[0],
+        MAYBE_STATIC[1],
+    ];
+    wrapped_message.push(0x73);
+    wrapped_message.push(SYSEX_EOX);
+    wrapped_message
+}
+// Sample response: F0 00 20 32 28 00 74 01  32 2E 30 2E 32 F7
 
 // Possibly tuner values plus other stuff:
 // Header:
