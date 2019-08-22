@@ -14,6 +14,7 @@ use crate::protocol::Toggle;
 mod events;
 mod midi;
 mod protocol;
+mod parser;
 
 pub struct State {
     // TODO will grow indefinitely, does it matter?
