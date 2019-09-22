@@ -3,9 +3,10 @@ use crate::midi::SysExPacket;
 pub const SYSEX_MESSAGE_START: u8 = 0xf0;
 pub const SYSEX_EOX: u8 = 0xf7;
 pub const BEHRINGER_MANUFACTURER: [u8; 3] = [0x00, 0x20, 0x32];
-pub const PROBABLY_NEUTRON_DEVICE: u8 = 0x28;
-pub const PROBABLY_COMMAND_SEQUENCE: [u8; 2] = [0x7f, 0x0a];
+pub const NEUTRON_DEVICE: u8 = 0x28;
 pub const MAYBE_STATIC: [u8; 3] = [0x28, 0x7f, 0x0a];
+
+pub const COMMS_PROTOCOL_V1: u8 = 0x01;
 
 pub fn is_behringer_packet(bytes: &[u8]) -> bool {
     bytes.is_sysex() && bytes.sysex_manufacturer() == BEHRINGER_MANUFACTURER
@@ -14,7 +15,7 @@ pub fn is_behringer_packet(bytes: &[u8]) -> bool {
 pub fn format_behringer_packet(bytes: &[u8]) -> String {
     let device = bytes[4];
     let mut buffer = String::new();
-    if device == PROBABLY_NEUTRON_DEVICE {
+    if device == NEUTRON_DEVICE {
         buffer.push_str("N ");
         buffer.push_str(hex::encode(&bytes[5..]).as_str());
     } else {
@@ -40,87 +41,225 @@ pub fn wrap_message(message: Vec<u8>) -> Vec<u8> {
     wrapped_message
 }
 
-pub enum Toggle {
+pub trait ByteBuilder {
+    fn append_to(&self, buffer: &mut Vec<u8>);
+}
+
+#[derive(Copy, Clone)]
+pub enum ToggleOption {
     On,
     Off,
 }
 
-fn toggle_value(t: Toggle) -> u8 {
-    match t {
-        Toggle::On => 0x01,
-        Toggle::Off => 0x00,
+impl ToggleOption {
+    fn as_byte(&self) -> u8 {
+        match self {
+            ToggleOption::On => 0x01,
+            ToggleOption::Off => 0x00,
+        }
     }
 }
 
-pub fn toggle_paraphonic_mode(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x0f, toggle_value(t)])
+#[derive(Copy, Clone)]
+pub enum BlendMode {
+    Switch,
+    Blend
 }
 
-pub fn toggle_osc_sync(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x0e, toggle_value(t)])
+impl BlendMode {
+    fn as_byte(&self) -> u8 {
+        match self {
+            BlendMode::Switch => 0x01,
+            BlendMode::Blend => 0x00,
+        }
+    }
 }
 
-// OSC 1
-
-pub fn toggle_osc_1_blend_mode(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x20, toggle_value(t)])
+#[derive(Copy, Clone)]
+pub enum OscRange {
+    // Oscillator Pipe Lengths
+    ThirtyTwo,
+    Sixteen,
+    Eight,
+    // +/- 10 Octaves
+    PlusMinusTen,
 }
 
-pub fn osc_1_range_32() -> Vec<u8> {
-    wrap_message(vec![0x26, 0x00])
+impl OscRange {
+    fn as_byte(&self) -> u8 {
+        match self {
+            OscRange::ThirtyTwo => 0x00,
+            OscRange::Sixteen => 0x01,
+            OscRange::Eight => 0x02,
+            OscRange::PlusMinusTen => 0x03,
+        }
+    }
 }
 
-pub fn osc_1_range_16() -> Vec<u8> {
-    wrap_message(vec![0x26, 0x01])
+#[derive(Copy, Clone)]
+pub enum KeyTrackMode {
+    Track,
+    Hold
 }
 
-pub fn osc_1_range_8() -> Vec<u8> {
-    wrap_message(vec![0x26, 0x02])
+impl KeyTrackMode {
+    fn as_byte(&self) -> u8 {
+        match self {
+            KeyTrackMode::Track => 0x00,
+            KeyTrackMode::Hold => 0x01,
+        }
+    }
 }
 
-pub fn osc_1_range_pm_10_oct() -> Vec<u8> {
-    wrap_message(vec![0x26, 0x03])
+#[derive(Copy, Clone)]
+pub enum GlobalSetting {
+    ParaphonicMode(ToggleOption),
+    OscSync(ToggleOption),
+    Osc1BlendMode(BlendMode),
+    Osc2BlendMode(BlendMode),
+    Osc1TunePotBypass(ToggleOption),
+    Osc2TunePotBypass(ToggleOption),
+    Osc1Range(OscRange),
+    Osc2Range(OscRange),
+    Osc2KeyTrack(KeyTrackMode),
+    LfoBlendMode(BlendMode),
+    LfoKeySync(ToggleOption),
+    LfoOneShot(ToggleOption),
+    LfoRetrigger(ToggleOption),
+    LfoMidiSync(ToggleOption),
+    LfoResetOrder,
+    VcfKeyTracking(ToggleOption),
 }
 
-// OSC 2
-pub fn toggle_osc_2_blend_mode(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x21, toggle_value(t)])
+impl ByteBuilder for GlobalSetting {
+    fn append_to(&self, buffer: &mut Vec<u8>) {
+        match self {
+            GlobalSetting::ParaphonicMode(t) => {
+                buffer.push(0x0f);
+                buffer.push(t.as_byte());
+            }
+            GlobalSetting::OscSync(t) => {
+                buffer.push(0x0e);
+                buffer.push(t.as_byte());
+            }
+            GlobalSetting::Osc1BlendMode(b) => {
+                buffer.push(0x20);
+                buffer.push(b.as_byte());
+            }
+            GlobalSetting::Osc2BlendMode(b) => {
+                buffer.push(0x21);
+                buffer.push(b.as_byte());
+            }
+            GlobalSetting::Osc1TunePotBypass(t) => {
+                buffer.push(0x22);
+                buffer.push(t.as_byte());
+            }
+            GlobalSetting::Osc2TunePotBypass(t) => {
+                buffer.push(0x23);
+                buffer.push(t.as_byte());
+            }
+            GlobalSetting::Osc1Range(r) => {
+                buffer.push(0x26);
+                buffer.push(r.as_byte());
+            }
+            GlobalSetting::Osc2Range(r) => {
+                buffer.push(0x27);
+                buffer.push(r.as_byte());
+            }
+            GlobalSetting::Osc2KeyTrack(k) => {
+                buffer.push(0x2a);
+                buffer.push(k.as_byte());
+            }
+            GlobalSetting::LfoBlendMode(b) => {
+                buffer.push(0x30);
+                buffer.push(b.as_byte());
+            }
+            GlobalSetting::LfoKeySync(t) => {
+                buffer.push(0x37);
+                buffer.push(t.as_byte());
+            }
+            GlobalSetting::LfoOneShot(t) => {
+                buffer.push(0x31);
+                buffer.push(t.as_byte());
+            }
+            GlobalSetting::LfoRetrigger(t) => {
+                buffer.push(0x3b);
+                buffer.push(t.as_byte());
+            }
+            GlobalSetting::LfoMidiSync(t) => {
+                buffer.push(0x35);
+                buffer.push(t.as_byte());
+            }
+            GlobalSetting::LfoResetOrder => {
+                buffer.push(0x39);
+                buffer.push(0x00);
+            }
+            GlobalSetting::VcfKeyTracking(t) => {
+                buffer.push(0x11);
+                buffer.push(t.as_byte());
+            }
+        }
+    }
 }
 
-pub fn osc_2_range_32() -> Vec<u8> {
-    wrap_message(vec![0x27, 0x00])
+pub enum NeutronMessage {
+    SetGlobalSetting(GlobalSetting),
+    RestoreGlobalSetting,
+    CalibrationModeCommand,
+    SoftwareVersionRequest,
+    SoftwareVersionResponse(String),
+    GlobalSettingUpdate(GlobalSetting),
 }
 
-pub fn osc_2_range_16() -> Vec<u8> {
-    wrap_message(vec![0x27, 0x01])
+impl NeutronMessage {
+
+    pub fn multicast(&self) -> Vec<u8> {
+        return self.with_device_id(0x7f)
+    }
+
+    pub fn with_device_id(&self, device_id: u8) -> Vec<u8> {
+        let mut bytes: Vec<u8> = Vec::new();
+        bytes.push(SYSEX_MESSAGE_START);
+        bytes.extend_from_slice(&BEHRINGER_MANUFACTURER);
+        bytes.push(NEUTRON_DEVICE);
+        bytes.push(device_id); // TODO validation?
+        match self {
+            NeutronMessage::SetGlobalSetting(c) => {
+                bytes.push(0x0a);
+                c.append_to(&mut bytes);
+            },
+            NeutronMessage::RestoreGlobalSetting => {
+                bytes.push(0x0b)
+            },
+            NeutronMessage::CalibrationModeCommand => {
+                bytes.push(0x10);
+                // TODO
+            },
+            NeutronMessage::SoftwareVersionRequest => {
+                bytes.push(0x73)
+            },
+            NeutronMessage::SoftwareVersionResponse(v) => {
+                bytes.push(0x74);
+                bytes.push(COMMS_PROTOCOL_V1);
+                bytes.extend_from_slice(v.as_bytes()); // TODO verify this
+            },
+            NeutronMessage::GlobalSettingUpdate(c) => {
+                bytes.push(0x5a);
+                bytes.push(COMMS_PROTOCOL_V1);
+                c.append_to(&mut bytes);
+            },
+        }
+        bytes.push(SYSEX_EOX);
+        bytes
+    }
 }
 
-pub fn osc_2_range_8() -> Vec<u8> {
-    wrap_message(vec![0x27, 0x02])
+fn toggle_value(t: ToggleOption) -> u8 {
+    match t {
+        ToggleOption::On => 0x01,
+        ToggleOption::Off => 0x00,
+    }
 }
-
-pub fn osc_2_range_pm_10_oct() -> Vec<u8> {
-    wrap_message(vec![0x27, 0x03])
-}
-
-// LFO
-pub fn toggle_lfo_blend_mode(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x30, toggle_value(t)])
-}
-
-pub fn toggle_lfo_key_sync(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x37, toggle_value(t)])
-}
-
-pub fn toggle_lfo_one_shot(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x31, toggle_value(t)])
-}
-
-// VCF
-pub fn toggle_vcf_key_tracking(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x11, toggle_value(t)])
-}
-
 
 // ======================= UNVERIFIED =======================
 
@@ -145,36 +284,16 @@ pub fn osc_key_split() -> Vec<u8> {
     wrap_message(vec![0x28, 0x00])
 }
 
-pub fn toggle_osc_1_tune_pot(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x22, toggle_value(t)])
-}
-
 pub fn osc_1_autoglide() -> Vec<u8> {
     // TODO parameter
     // 0x00 <-> 0x18 for a range of 25 (-12 to +12)
     wrap_message(vec![0x24, 0x00])
 }
 
-pub fn toggle_osc_2_tune_pot(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x23, toggle_value(t)])
-}
-
 pub fn osc_2_autoglide() -> Vec<u8> {
     // TODO parameter
     // 0x00 <-> 0x18 for a range of 25 (-12 to +12)
     wrap_message(vec![0x25, 0x00])
-}
-
-pub fn toggle_osc_2_key_track_hold(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x2a, toggle_value(t)])
-}
-
-pub fn toggle_lfo_retrigger(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x3b, toggle_value(t)])
-}
-
-pub fn toggle_lfo_midi_sync(t: Toggle) -> Vec<u8> {
-    wrap_message(vec![0x35, toggle_value(t)])
 }
 
 pub fn lfo_key_tracking() -> Vec<u8> {
@@ -194,10 +313,6 @@ pub fn lfo_depth() -> Vec<u8> {
     // ...
     // 0x3f = 100%
     wrap_message(vec![0x34, 0x00])
-}
-
-pub fn lfo_reset_order() -> Vec<u8> {
-    wrap_message(vec![0x39, 0x00])
 }
 
 pub fn lfo_shape_order() -> Vec<u8> {
@@ -377,7 +492,7 @@ pub fn maybe_request_state() -> Vec<u8> {
         MAYBE_STATIC[0],
         MAYBE_STATIC[1],
     ];
-    wrapped_message.push(0x05);
+    wrapped_message.push(0x05); // TODO this is not in the documentation
     wrapped_message.push(SYSEX_EOX);
     wrapped_message
 }

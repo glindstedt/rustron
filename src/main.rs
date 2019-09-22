@@ -5,11 +5,19 @@ use termion::event::Key;
 use termion::raw::IntoRawMode;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
-use tui::widgets::{Block, Borders, List, Text, SelectableList, Widget};
 use tui::Terminal;
+use tui::widgets::{Block, Borders, List, SelectableList, Text, Widget};
 
 use crate::events::{Event, Events};
-use crate::protocol::Toggle;
+use crate::protocol::{
+    BlendMode::{Blend, Switch},
+    GlobalSetting,
+    GlobalSetting::{LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, VcfKeyTracking},
+    KeyTrackMode::{Hold, Track},
+    NeutronMessage::SetGlobalSetting,
+    OscRange::{Eight, PlusMinusTen, Sixteen, ThirtyTwo},
+    ToggleOption::{Off, On},
+};
 
 mod events;
 mod midi;
@@ -54,47 +62,42 @@ impl App {
     }
 }
 
-pub const MENU_MAPPINGS: [(&str, fn() -> Vec<u8>); 35] = [
-    ("Paraphonic mode On", || protocol::toggle_paraphonic_mode(Toggle::On)),
-    ("Paraphonic mode Off", || protocol::toggle_paraphonic_mode(Toggle::Off)),
-    ("OSC Sync On", || protocol::toggle_osc_sync(Toggle::On)),
-    ("OSC Sync Off", || protocol::toggle_osc_sync(Toggle::Off)),
-
-    ("OSC 1 blend mode Switch", || protocol::toggle_osc_1_blend_mode(Toggle::On)),
-    ("OSC 1 blend mode Blend", || protocol::toggle_osc_1_blend_mode(Toggle::Off)),
-    ("OSC 1 tune pot Bypass", || protocol::toggle_osc_1_tune_pot(Toggle::On)),
-    ("OSC 1 tune pot Enable", || protocol::toggle_osc_1_tune_pot(Toggle::Off)),
-    ("OSC 1 range 32", protocol::osc_1_range_32),
-    ("OSC 1 range 16", protocol::osc_1_range_16),
-    ("OSC 1 range 8", protocol::osc_1_range_8),
-    ("OSC 1 range +/- 10 Oct", protocol::osc_1_range_pm_10_oct),
-
-    ("OSC 2 blend mode Switch", || protocol::toggle_osc_2_blend_mode(Toggle::On)),
-    ("OSC 2 blend mode Blend", || protocol::toggle_osc_2_blend_mode(Toggle::Off)),
-    ("OSC 2 tune pot Bypass", || protocol::toggle_osc_2_tune_pot(Toggle::On)),
-    ("OSC 2 tune pot Enable", || protocol::toggle_osc_2_tune_pot(Toggle::Off)),
-    ("OSC 2 range 32", protocol::osc_2_range_32),
-    ("OSC 2 range 16", protocol::osc_2_range_16),
-    ("OSC 2 range 8", protocol::osc_2_range_8),
-    ("OSC 2 range +/- 10 Oct", protocol::osc_2_range_pm_10_oct),
-
-    ("OSC 2 key track Hold", || protocol::toggle_osc_2_key_track_hold(Toggle::On)),
-    ("OSC 2 key track Track", || protocol::toggle_osc_2_key_track_hold(Toggle::Off)),
-
-    ("LFO blend mode Switch", || protocol::toggle_lfo_blend_mode(Toggle::On)),
-    ("LFO blend mode Blend", || protocol::toggle_lfo_blend_mode(Toggle::Off)),
-    ("LFO key sync On", || protocol::toggle_lfo_key_sync(Toggle::On)),
-    ("LFO key sync Off", || protocol::toggle_lfo_key_sync(Toggle::Off)),
-    ("LFO one-shot On", || protocol::toggle_lfo_one_shot(Toggle::On)),
-    ("LFO one-shot Off", || protocol::toggle_lfo_one_shot(Toggle::Off)),
-    ("LFO retrigger On", || protocol::toggle_lfo_retrigger(Toggle::On)),
-    ("LFO retrigger Off", || protocol::toggle_lfo_retrigger(Toggle::Off)),
-    ("LFO midi sync On", || protocol::toggle_lfo_midi_sync(Toggle::On)),
-    ("LFO midi sync Off", || protocol::toggle_lfo_midi_sync(Toggle::Off)),
-    ("LFO reset order", protocol::lfo_reset_order),
-
-    ("VCF key tracking On", || protocol::toggle_vcf_key_tracking(Toggle::On)),
-    ("VCF key tracking Off", || protocol::toggle_vcf_key_tracking(Toggle::Off)),
+pub const MENU_MAPPINGS: [(&str, GlobalSetting); 35] = [
+    ("Paraphonic mode On", ParaphonicMode(On)),
+    ("Paraphonic mode Off", ParaphonicMode(Off)),
+    ("OSC Sync On", OscSync(On)),
+    ("OSC Sync Off", OscSync(Off)),
+    ("OSC 1 blend mode Switch", Osc1BlendMode(Switch)),
+    ("OSC 1 blend mode Blend", Osc1BlendMode(Blend)),
+    ("OSC 1 tune pot Bypass", Osc1TunePotBypass(On)),
+    ("OSC 1 tune pot Enable", Osc1TunePotBypass(Off)),
+    ("OSC 1 range 32", Osc1Range(ThirtyTwo)),
+    ("OSC 1 range 16", Osc1Range(Sixteen)),
+    ("OSC 1 range 8", Osc1Range(Eight)),
+    ("OSC 1 range +/- 10 Oct", Osc1Range(PlusMinusTen)),
+    ("OSC 2 blend mode Switch", Osc2BlendMode(Switch)),
+    ("OSC 2 blend mode Blend", Osc2BlendMode(Blend)),
+    ("OSC 2 tune pot Bypass", Osc2TunePotBypass(On)),
+    ("OSC 2 tune pot Enable", Osc2TunePotBypass(Off)),
+    ("OSC 2 range 32", Osc2Range(ThirtyTwo)),
+    ("OSC 2 range 16", Osc2Range(Sixteen)),
+    ("OSC 2 range 8", Osc2Range(Eight)),
+    ("OSC 2 range +/- 10 Oct", Osc2Range(PlusMinusTen)),
+    ("OSC 2 key track Hold", Osc2KeyTrack(Hold)),
+    ("OSC 2 key track Track", Osc2KeyTrack(Track)),
+    ("LFO blend mode Switch", LfoBlendMode(Switch)),
+    ("LFO blend mode Blend", LfoBlendMode(Blend)),
+    ("LFO key sync On", LfoKeySync(On)),
+    ("LFO key sync Off", LfoKeySync(Off)),
+    ("LFO one-shot On", LfoOneShot(On)),
+    ("LFO one-shot Off", LfoOneShot(Off)),
+    ("LFO retrigger On", LfoRetrigger(On)),
+    ("LFO retrigger Off", LfoRetrigger(Off)),
+    ("LFO midi sync On", LfoMidiSync(On)),
+    ("LFO midi sync Off", LfoMidiSync(Off)),
+    ("LFO reset order", LfoResetOrder),
+    ("VCF key tracking On", VcfKeyTracking(On)),
+    ("VCF key tracking Off", VcfKeyTracking(Off)),
 ];
 
 fn main() -> Result<(), failure::Error> {
@@ -194,23 +197,23 @@ fn main() -> Result<(), failure::Error> {
             Event::Input(key) => match key {
                 Key::Char('q') => break,
                 Key::Char('s') => app.command(protocol::maybe_request_state().as_slice())?,
-                Key::Char('P') => app.command(protocol::toggle_paraphonic_mode(Toggle::On).as_slice())?,
-                Key::Char('p') => app.command(protocol::toggle_paraphonic_mode(Toggle::Off).as_slice())?,
-                Key::Char('Y') => app.command(protocol::toggle_osc_sync(Toggle::On).as_slice())?,
-                Key::Char('y') => app.command(protocol::toggle_osc_sync(Toggle::Off).as_slice())?,
+                Key::Char('P') => app.command(SetGlobalSetting(ParaphonicMode(On)).multicast().as_slice())?,
+                Key::Char('p') => app.command(SetGlobalSetting(ParaphonicMode(Off)).multicast().as_slice())?,
+                Key::Char('Y') => app.command(SetGlobalSetting(OscSync(On)).multicast().as_slice())?,
+                Key::Char('y') => app.command(SetGlobalSetting(OscSync(Off)).multicast().as_slice())?,
 
                 // Menu stuff
-                Key::Char('\n') => app.command(MENU_MAPPINGS[menu_selection].1().as_slice())?,
+                Key::Char('\n') => app.command(SetGlobalSetting(MENU_MAPPINGS[menu_selection].1).multicast().as_slice())?,
                 Key::Down => {
                     menu_selection = (menu_selection + 1) % menu_items.len();
-                },
+                }
                 Key::Up => {
                     if menu_selection == 0 {
                         menu_selection = menu_items.len() - 1;
                     } else {
                         menu_selection = menu_selection - 1;
                     }
-                },
+                }
                 _ => {}
             },
             _ => {}

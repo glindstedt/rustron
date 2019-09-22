@@ -7,7 +7,7 @@ use nom::{
     sequence::{delimited, preceded},
 };
 
-use crate::protocol::{BEHRINGER_MANUFACTURER, SYSEX_EOX, SYSEX_MESSAGE_START, PROBABLY_NEUTRON_DEVICE};
+use crate::protocol::{BEHRINGER_MANUFACTURER, NEUTRON_DEVICE, SYSEX_EOX, SYSEX_MESSAGE_START, ToggleOption};
 
 fn sysex(input: &[u8]) -> IResult<&[u8], &[u8]> {
     delimited(
@@ -26,7 +26,7 @@ fn behringer_packet(input: &[u8]) -> IResult<&[u8], &[u8]> {
 
 fn neutron_packet(input: &[u8]) -> IResult<&[u8], &[u8]> {
     preceded(
-        tag(&[PROBABLY_NEUTRON_DEVICE]),
+        tag(&[NEUTRON_DEVICE]),
         take_while1(|_| true),
     )(input)
 }
@@ -42,8 +42,11 @@ mod test {
     use nom::error::ErrorKind;
     use nom::IResult;
 
-    use crate::parser::{behringer_packet, parse, sysex, neutron_packet};
-    use crate::protocol::{BEHRINGER_MANUFACTURER, SYSEX_EOX, SYSEX_MESSAGE_START, PROBABLY_NEUTRON_DEVICE};
+    use crate::parser::{behringer_packet, neutron_packet, parse, sysex};
+    use crate::protocol::{BEHRINGER_MANUFACTURER, GlobalSetting, NEUTRON_DEVICE, SYSEX_EOX, SYSEX_MESSAGE_START, ToggleOption};
+    use crate::protocol::GlobalSetting::ParaphonicMode;
+    use crate::protocol::ToggleOption::On;
+    use crate::protocol::NeutronMessage::{SetGlobalSetting, GlobalSettingUpdate};
 
     #[test]
     fn sysex_happy_path() {
@@ -71,7 +74,7 @@ mod test {
 
     #[test]
     fn neutron_happy_path() {
-        let pkg: [u8; 2] = [PROBABLY_NEUTRON_DEVICE, 0x01];
+        let pkg: [u8; 2] = [NEUTRON_DEVICE, 0x01];
         assert_eq!(neutron_packet(&pkg), Ok((&[][..], &[0x01][..])));
     }
 
@@ -82,10 +85,45 @@ mod test {
             BEHRINGER_MANUFACTURER[0],
             BEHRINGER_MANUFACTURER[1],
             BEHRINGER_MANUFACTURER[2],
-            PROBABLY_NEUTRON_DEVICE,
+            NEUTRON_DEVICE,
             0x01,
             SYSEX_EOX
         ];
         assert_eq!(parse(&pkg), Ok((&[][..], &[0x01][..])));
+    }
+
+    #[test]
+    fn test_command() {
+        let turn_on_paraphonic_raw: [u8; 10] = [
+            SYSEX_MESSAGE_START,
+            BEHRINGER_MANUFACTURER[0],
+            BEHRINGER_MANUFACTURER[1],
+            BEHRINGER_MANUFACTURER[2],
+            NEUTRON_DEVICE,
+            0x7f,
+            0x0a,
+            0x0f, // paraphonic mode
+            0x01, // value
+            SYSEX_EOX
+        ];
+        let msg_turn_on_paraphonic = SetGlobalSetting(ParaphonicMode(On)).multicast();
+        assert_eq!(turn_on_paraphonic_raw, msg_turn_on_paraphonic.as_slice());
+        //format_command(NeutronToggleCommand::ParaphonicMode(ToggleOption::On));
+
+        let ack_turn_on_paraphonic_raw: [u8; 11] = [
+            SYSEX_MESSAGE_START,
+            BEHRINGER_MANUFACTURER[0],
+            BEHRINGER_MANUFACTURER[1],
+            BEHRINGER_MANUFACTURER[2],
+            NEUTRON_DEVICE,
+            0x00,
+            0x5a,
+            0x01,
+            0x0f, // paraphonic mode
+            0x01, // value
+            SYSEX_EOX
+        ];
+        let ack_turn_on_paraphonic = GlobalSettingUpdate(ParaphonicMode(On)).with_device_id(0);
+        assert_eq!(ack_turn_on_paraphonic_raw, ack_turn_on_paraphonic.as_slice())
     }
 }
