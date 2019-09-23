@@ -17,6 +17,7 @@ use crate::protocol::{
     NeutronMessage::SetGlobalSetting,
     OscRange::{Eight, PlusMinusTen, Sixteen, ThirtyTwo},
     ToggleOption::{Off, On},
+    DeviceId::Multicast,
 };
 
 mod events;
@@ -197,13 +198,13 @@ fn main() -> Result<(), failure::Error> {
             Event::Input(key) => match key {
                 Key::Char('q') => break,
                 Key::Char('s') => app.command(protocol::maybe_request_state().as_slice())?,
-                Key::Char('P') => app.command(SetGlobalSetting(ParaphonicMode(On)).multicast().as_slice())?,
-                Key::Char('p') => app.command(SetGlobalSetting(ParaphonicMode(Off)).multicast().as_slice())?,
-                Key::Char('Y') => app.command(SetGlobalSetting(OscSync(On)).multicast().as_slice())?,
-                Key::Char('y') => app.command(SetGlobalSetting(OscSync(Off)).multicast().as_slice())?,
+                Key::Char('P') => app.command(SetGlobalSetting(Multicast, ParaphonicMode(On)).as_bytes().as_slice())?,
+                Key::Char('p') => app.command(SetGlobalSetting(Multicast, ParaphonicMode(Off)).as_bytes().as_slice())?,
+                Key::Char('Y') => app.command(SetGlobalSetting(Multicast, OscSync(On)).as_bytes().as_slice())?,
+                Key::Char('y') => app.command(SetGlobalSetting(Multicast, OscSync(Off)).as_bytes().as_slice())?,
 
                 // Menu stuff
-                Key::Char('\n') => app.command(SetGlobalSetting(MENU_MAPPINGS[menu_selection].1).multicast().as_slice())?,
+                Key::Char('\n') => app.command(SetGlobalSetting(Multicast, MENU_MAPPINGS[menu_selection].1).as_bytes().as_slice())?,
                 Key::Down => {
                     menu_selection = (menu_selection + 1) % menu_items.len();
                 }

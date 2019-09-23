@@ -202,48 +202,107 @@ impl ByteBuilder for GlobalSetting {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum Channel {
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
+    Nine,
+    Ten,
+    Eleven,
+    Twelve,
+    Thirteen,
+    Fourteen,
+    Fifteen,
+    Sixteen,
+}
+
+impl Channel {
+    fn as_byte(&self) -> u8 {
+        match self {
+            Channel::One => 0x00,
+            Channel::Two => 0x01,
+            Channel::Three => 0x02,
+            Channel::Four => 0x03,
+            Channel::Five => 0x04,
+            Channel::Six => 0x05,
+            Channel::Seven => 0x06,
+            Channel::Eight => 0x07,
+            Channel::Nine => 0x08,
+            Channel::Ten => 0x09,
+            Channel::Eleven => 0x0a,
+            Channel::Twelve => 0x0b,
+            Channel::Thirteen => 0x0c,
+            Channel::Fourteen => 0x0d,
+            Channel::Fifteen => 0x0d,
+            Channel::Sixteen => 0x0f,
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum DeviceId {
+    Channel(Channel),
+    Multicast,
+}
+
+impl DeviceId {
+    fn as_byte(&self) -> u8 {
+        match &self {
+            DeviceId::Channel(c) => c.as_byte(),
+            DeviceId::Multicast => 0x7f,
+        }
+    }
+}
+
 pub enum NeutronMessage {
-    SetGlobalSetting(GlobalSetting),
-    RestoreGlobalSetting,
-    CalibrationModeCommand,
-    SoftwareVersionRequest,
-    SoftwareVersionResponse(String),
-    GlobalSettingUpdate(GlobalSetting),
+    SetGlobalSetting(DeviceId, GlobalSetting),
+    RestoreGlobalSetting(DeviceId),
+    CalibrationModeCommand(DeviceId),
+    SoftwareVersionRequest(DeviceId),
+    SoftwareVersionResponse(DeviceId, String),
+    GlobalSettingUpdate(DeviceId, GlobalSetting),
 }
 
 impl NeutronMessage {
 
-    pub fn multicast(&self) -> Vec<u8> {
-        return self.with_device_id(0x7f)
-    }
-
-    pub fn with_device_id(&self, device_id: u8) -> Vec<u8> {
+    pub fn as_bytes(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
         bytes.push(SYSEX_MESSAGE_START);
         bytes.extend_from_slice(&BEHRINGER_MANUFACTURER);
         bytes.push(NEUTRON_DEVICE);
-        bytes.push(device_id); // TODO validation?
         match self {
-            NeutronMessage::SetGlobalSetting(c) => {
+            NeutronMessage::SetGlobalSetting(id, c) => {
+                bytes.push(id.as_byte());
                 bytes.push(0x0a);
                 c.append_to(&mut bytes);
             },
-            NeutronMessage::RestoreGlobalSetting => {
+            NeutronMessage::RestoreGlobalSetting(id) => {
+                bytes.push(id.as_byte());
                 bytes.push(0x0b)
             },
-            NeutronMessage::CalibrationModeCommand => {
+            NeutronMessage::CalibrationModeCommand(id) => {
+                bytes.push(id.as_byte());
                 bytes.push(0x10);
                 // TODO
             },
-            NeutronMessage::SoftwareVersionRequest => {
+            NeutronMessage::SoftwareVersionRequest(id) => {
+                bytes.push(id.as_byte());
                 bytes.push(0x73)
             },
-            NeutronMessage::SoftwareVersionResponse(v) => {
+            NeutronMessage::SoftwareVersionResponse(id, v) => {
+                bytes.push(id.as_byte());
                 bytes.push(0x74);
                 bytes.push(COMMS_PROTOCOL_V1);
                 bytes.extend_from_slice(v.as_bytes()); // TODO verify this
             },
-            NeutronMessage::GlobalSettingUpdate(c) => {
+            NeutronMessage::GlobalSettingUpdate(id, c) => {
+                bytes.push(id.as_byte());
                 bytes.push(0x5a);
                 bytes.push(COMMS_PROTOCOL_V1);
                 c.append_to(&mut bytes);
@@ -251,13 +310,6 @@ impl NeutronMessage {
         }
         bytes.push(SYSEX_EOX);
         bytes
-    }
-}
-
-fn toggle_value(t: ToggleOption) -> u8 {
-    match t {
-        ToggleOption::On => 0x01,
-        ToggleOption::Off => 0x00,
     }
 }
 
