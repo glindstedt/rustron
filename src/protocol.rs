@@ -4,6 +4,13 @@ pub const SYSEX_MESSAGE_START: u8 = 0xf0;
 pub const SYSEX_EOX: u8 = 0xf7;
 pub const BEHRINGER_MANUFACTURER: [u8; 3] = [0x00, 0x20, 0x32];
 pub const NEUTRON_DEVICE: u8 = 0x28;
+pub const NEUTRON_MESSAGE_HEADER: [u8; 5] = [
+    SYSEX_MESSAGE_START,
+    BEHRINGER_MANUFACTURER[0],
+    BEHRINGER_MANUFACTURER[1],
+    BEHRINGER_MANUFACTURER[2],
+    NEUTRON_DEVICE,
+];
 pub const MAYBE_STATIC: [u8; 3] = [0x28, 0x7f, 0x0a];
 
 pub const COMMS_PROTOCOL_V1: u8 = 0x01;
@@ -45,14 +52,14 @@ pub trait ByteBuilder {
     fn append_to(&self, buffer: &mut Vec<u8>);
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ToggleOption {
     On,
     Off,
 }
 
 impl ToggleOption {
-    fn as_byte(&self) -> u8 {
+    pub fn as_byte(&self) -> u8 {
         match self {
             ToggleOption::On => 0x01,
             ToggleOption::Off => 0x00,
@@ -60,14 +67,14 @@ impl ToggleOption {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlendMode {
     Switch,
     Blend
 }
 
 impl BlendMode {
-    fn as_byte(&self) -> u8 {
+    pub fn as_byte(&self) -> u8 {
         match self {
             BlendMode::Switch => 0x01,
             BlendMode::Blend => 0x00,
@@ -75,7 +82,7 @@ impl BlendMode {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum OscRange {
     // Oscillator Pipe Lengths
     ThirtyTwo,
@@ -86,7 +93,7 @@ pub enum OscRange {
 }
 
 impl OscRange {
-    fn as_byte(&self) -> u8 {
+    pub fn as_byte(&self) -> u8 {
         match self {
             OscRange::ThirtyTwo => 0x00,
             OscRange::Sixteen => 0x01,
@@ -96,14 +103,14 @@ impl OscRange {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum KeyTrackMode {
     Track,
     Hold
 }
 
 impl KeyTrackMode {
-    fn as_byte(&self) -> u8 {
+    pub fn as_byte(&self) -> u8 {
         match self {
             KeyTrackMode::Track => 0x00,
             KeyTrackMode::Hold => 0x01,
@@ -111,7 +118,7 @@ impl KeyTrackMode {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GlobalSetting {
     ParaphonicMode(ToggleOption),
     OscSync(ToggleOption),
@@ -202,7 +209,7 @@ impl ByteBuilder for GlobalSetting {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Channel {
     One,
     Two,
@@ -245,7 +252,7 @@ impl Channel {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum DeviceId {
     Channel(Channel),
     Multicast,
@@ -260,6 +267,7 @@ impl DeviceId {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum NeutronMessage {
     SetGlobalSetting(DeviceId, GlobalSetting),
     RestoreGlobalSetting(DeviceId),
