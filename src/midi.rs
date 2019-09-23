@@ -1,9 +1,7 @@
 use std::fmt::Display;
 use std::sync::mpsc::Sender;
 
-use midir::{
-    MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, PortInfoError,
-};
+use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, PortInfoError};
 
 use crate::protocol;
 use crate::protocol::{format_behringer_packet, is_behringer_packet};

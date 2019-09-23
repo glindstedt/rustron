@@ -70,7 +70,7 @@ impl ToggleOption {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlendMode {
     Switch,
-    Blend
+    Blend,
 }
 
 impl BlendMode {
@@ -106,7 +106,7 @@ impl OscRange {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum KeyTrackMode {
     Track,
-    Hold
+    Hold,
 }
 
 impl KeyTrackMode {
@@ -278,7 +278,6 @@ pub enum NeutronMessage {
 }
 
 impl NeutronMessage {
-
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
         bytes.push(SYSEX_MESSAGE_START);
@@ -289,32 +288,32 @@ impl NeutronMessage {
                 bytes.push(id.as_byte());
                 bytes.push(0x0a);
                 c.append_to(&mut bytes);
-            },
+            }
             NeutronMessage::RestoreGlobalSetting(id) => {
                 bytes.push(id.as_byte());
                 bytes.push(0x0b)
-            },
+            }
             NeutronMessage::CalibrationModeCommand(id) => {
                 bytes.push(id.as_byte());
                 bytes.push(0x10);
                 // TODO
-            },
+            }
             NeutronMessage::SoftwareVersionRequest(id) => {
                 bytes.push(id.as_byte());
                 bytes.push(0x73)
-            },
+            }
             NeutronMessage::SoftwareVersionResponse(id, v) => {
                 bytes.push(id.as_byte());
                 bytes.push(0x74);
                 bytes.push(COMMS_PROTOCOL_V1);
                 bytes.extend_from_slice(v.as_bytes()); // TODO verify this
-            },
+            }
             NeutronMessage::GlobalSettingUpdate(id, c) => {
                 bytes.push(id.as_byte());
                 bytes.push(0x5a);
                 bytes.push(COMMS_PROTOCOL_V1);
                 c.append_to(&mut bytes);
-            },
+            }
         }
         bytes.push(SYSEX_EOX);
         bytes
@@ -566,7 +565,6 @@ pub fn maybe_request_state() -> Vec<u8> {
 // F0 00 20 32 28 00 06 01  7B 02 00 00 02 31 08 58  46 00 00 00 00 00 00 00  7F 0F 00 00 00 00 00 01  F7
 // PARAPHONIC MODE ON                             |
 // F0 00 20 32 28 00 06 01  7B 02 00 00 02 31 08 59  46 00 00 00 00 00 00 00  7F 0F 00 00 00 00 00 01  F7
-
 
 // Maybe firmware version?
 // Only sent once when first connecting to the neutron
