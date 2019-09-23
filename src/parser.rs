@@ -116,7 +116,7 @@ fn version(input: &[u8]) -> IResult<&[u8], String> {
     })(input)
 }
 
-fn neutron_message(input: &[u8]) -> IResult<&[u8], NeutronMessage> {
+pub fn neutron_message(input: &[u8]) -> IResult<&[u8], NeutronMessage> {
     delimited(
         tag(NEUTRON_MESSAGE_HEADER),
         alt((

@@ -3,8 +3,8 @@ use std::sync::mpsc::Sender;
 
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, PortInfoError};
 
+use crate::parser::neutron_message;
 use crate::protocol;
-use crate::protocol::{format_behringer_packet, is_behringer_packet};
 
 pub trait SysExPacket {
     fn is_sysex(&self) -> bool;
@@ -40,8 +40,8 @@ impl Display for MidiPacket {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Format into 8 byte batches
         let bytes = self.message.as_slice();
-        let packet_string = if is_behringer_packet(bytes) {
-            format_behringer_packet(bytes)
+        let packet_string = if let Ok((_, message)) = neutron_message(bytes) {
+            message.to_string()
         } else {
             hex::encode(&self.message)
         };

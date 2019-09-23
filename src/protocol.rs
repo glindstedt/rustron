@@ -1,4 +1,5 @@
 use crate::midi::SysExPacket;
+use std::fmt::{Debug, Display};
 
 pub const SYSEX_MESSAGE_START: u8 = 0xf0;
 pub const SYSEX_EOX: u8 = 0xf7;
@@ -275,6 +276,12 @@ pub enum NeutronMessage {
     SoftwareVersionRequest(DeviceId),
     SoftwareVersionResponse(DeviceId, String),
     GlobalSettingUpdate(DeviceId, GlobalSetting),
+}
+
+impl Display for NeutronMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
 }
 
 impl NeutronMessage {
