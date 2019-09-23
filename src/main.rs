@@ -1,5 +1,5 @@
 use std::io;
-use std::sync::mpsc::channel;
+use std::sync::mpsc;
 
 use termion::event::Key;
 use termion::raw::IntoRawMode;
@@ -9,6 +9,7 @@ use tui::widgets::{Block, Borders, List, SelectableList, Text, Widget};
 use tui::Terminal;
 
 use crate::events::{Event, Events};
+use crate::parser::neutron_message;
 use crate::protocol::{
     BlendMode::{Blend, Switch},
     DeviceId::Multicast,
@@ -31,7 +32,7 @@ mod protocol;
 
 pub struct State {
     // TODO will grow indefinitely, does it matter?
-    midi_in_messages: Vec<midi::MidiPacket>,
+    midi_in_messages: Vec<Vec<u8>>,
 }
 
 impl State {
@@ -41,7 +42,7 @@ impl State {
         }
     }
 
-    pub fn push(&mut self, packet: midi::MidiPacket) {
+    pub fn push(&mut self, packet: Vec<u8>) {
         self.midi_in_messages.push(packet);
     }
 }
@@ -49,7 +50,7 @@ impl State {
 pub struct App {
     connection: midi::MidiConnection,
     state: State,
-    command_history: Vec<midi::MidiPacket>,
+    command_history: Vec<String>,
 }
 
 impl App {
@@ -61,9 +62,16 @@ impl App {
         })
     }
 
-    pub fn command(&mut self, message: &[u8]) -> Result<(), failure::Error> {
-        self.command_history.push(midi::MidiPacket::new(message));
-        self.connection.send_message(message)
+    pub fn command(&mut self, message: &[u8]) {
+        match neutron_message(message) {
+            Ok((_, msg)) => {
+                self.command_history.push(msg.to_string());
+            }
+            Err(_) => self.command_history.push(hex::encode(message)),
+        }
+        if let Err(error) = self.connection.send_message(message) {
+            self.command_history.push(format!("{}", error))
+        };
     }
 }
 
@@ -114,11 +122,13 @@ fn main() -> Result<(), failure::Error> {
 
     let key_events = Events::new();
 
-    let (midi_in_sender, midi_in_receiver) = channel();
+    let (midi_in_sender, midi_in_receiver) = mpsc::channel();
     let state = State::new();
 
     let app = &mut App::new(state)?;
-    app.connection.register_midi_in_channel(midi_in_sender)?;
+    if let Err(error) = app.connection.register_midi_in_channel(midi_in_sender) {
+        app.command_history.push(format!("{}", error))
+    };
 
     // let menu_items = ["Hello world!", "Foo Bar"];
     let menu_items: Vec<String> = MENU_MAPPINGS
@@ -188,7 +198,10 @@ fn main() -> Result<(), failure::Error> {
             };
             let midi_messages = app.state.midi_in_messages[start_index..]
                 .iter()
-                .map(|event| Text::raw(event.to_string()));
+                .map(|event| match neutron_message(event.as_slice()) {
+                    Ok((_, msg)) => Text::raw(msg.to_string()),
+                    Err(_) => Text::raw(hex::encode(event)),
+                });
             List::new(midi_messages)
                 .block(
                     Block::default()
@@ -201,34 +214,34 @@ fn main() -> Result<(), failure::Error> {
         match key_events.next()? {
             Event::Input(key) => match key {
                 Key::Char('q') => break,
-                Key::Char('s') => app.command(protocol::maybe_request_state().as_slice())?,
+                Key::Char('s') => app.command(protocol::maybe_request_state().as_slice()),
                 Key::Char('P') => app.command(
                     SetGlobalSetting(Multicast, ParaphonicMode(On))
                         .as_bytes()
                         .as_slice(),
-                )?,
+                ),
                 Key::Char('p') => app.command(
                     SetGlobalSetting(Multicast, ParaphonicMode(Off))
                         .as_bytes()
                         .as_slice(),
-                )?,
+                ),
                 Key::Char('Y') => app.command(
                     SetGlobalSetting(Multicast, OscSync(On))
                         .as_bytes()
                         .as_slice(),
-                )?,
+                ),
                 Key::Char('y') => app.command(
                     SetGlobalSetting(Multicast, OscSync(Off))
                         .as_bytes()
                         .as_slice(),
-                )?,
+                ),
 
                 // Menu stuff
                 Key::Char('\n') => app.command(
                     SetGlobalSetting(Multicast, MENU_MAPPINGS[menu_selection].1)
                         .as_bytes()
                         .as_slice(),
-                )?,
+                ),
                 Key::Down => {
                     menu_selection = (menu_selection + 1) % menu_items.len();
                 }

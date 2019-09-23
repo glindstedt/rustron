@@ -21,34 +21,6 @@ impl SysExPacket for [u8] {
     }
 }
 
-pub struct MidiPacket {
-    message: Vec<u8>,
-}
-
-impl MidiPacket {
-    pub fn new(message: &[u8]) -> MidiPacket {
-        MidiPacket {
-            message: message.to_vec(),
-        }
-    }
-    pub fn message(&self) -> &[u8] {
-        self.message.as_slice()
-    }
-}
-
-impl Display for MidiPacket {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Format into 8 byte batches
-        let bytes = self.message.as_slice();
-        let packet_string = if let Ok((_, message)) = neutron_message(bytes) {
-            message.to_string()
-        } else {
-            hex::encode(&self.message)
-        };
-        write!(f, "{}", packet_string)
-    }
-}
-
 pub struct MidiConnection {
     // TODO what about closing connections?
     midi_out: Option<MidiOutputConnection>,
@@ -65,38 +37,45 @@ impl MidiConnection {
 
     fn connect_midi_out(&mut self) -> Result<(), failure::Error> {
         let output = MidiOutput::new("Neutron").unwrap();
-        let out_port = get_neutron_port(&output)?;
-        self.midi_out = output.connect(out_port, "neutron").ok();
-        Ok(())
+        let out_port = get_neutron_port(&output);
+        return match out_port {
+            Ok(port_number) => {
+                self.midi_out = output.connect(port_number, "neutron").ok();
+                Ok(())
+            }
+            Err(error) => Err(error),
+        };
     }
 
     pub fn register_midi_in_channel(
         &mut self,
-        message_sender_channel: Sender<MidiPacket>,
+        message_sender_channel: Sender<Vec<u8>>,
     ) -> Result<(), failure::Error> {
         let input = MidiInput::new("Neutron").unwrap();
-        let in_port = get_neutron_port(&input)?;
+        let in_port = get_neutron_port(&input);
 
-        self.midi_in = input
-            .connect(
-                in_port,
-                "neutron",
-                move |_, msg, _| {
-                    message_sender_channel.send(MidiPacket {
-                        message: msg.to_vec(),
-                    });
-                },
-                (),
-            )
-            .map_err(|e| failure::err_msg(e.to_string()))
-            .ok();
-
-        Ok(())
+        return match in_port {
+            Ok(port_number) => {
+                self.midi_in = input
+                    .connect(
+                        port_number,
+                        "neutron",
+                        move |_, msg, _| {
+                            message_sender_channel.send(msg.to_vec());
+                        },
+                        (),
+                    )
+                    .map_err(|e| failure::err_msg(e.to_string()))
+                    .ok();
+                Ok(())
+            }
+            Err(error) => Err(error),
+        };
     }
 
     pub fn send_message(&mut self, message: &[u8]) -> Result<(), failure::Error> {
         if self.midi_out.is_none() {
-            self.connect_midi_out()?;
+            self.connect_midi_out();
         }
         match &mut self.midi_out {
             Some(out) => out
