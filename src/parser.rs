@@ -1,17 +1,12 @@
 use nom::branch::alt;
-use nom::bytes::complete::take;
 use nom::combinator::{cut, map};
-use nom::error::context;
 use nom::sequence::{separated_pair, terminated};
 use nom::{
-    bytes::complete::{tag, take_till1, take_while1},
-    error::ErrorKind,
-    named,
+    bytes::complete::{tag, take_till1},
     sequence::{delimited, preceded},
-    Err, IResult,
+    IResult,
 };
 
-use crate::protocol::DeviceId::Multicast;
 use crate::protocol::GlobalSetting::{
     LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, Osc1BlendMode,
     Osc1Range, Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass,
@@ -23,8 +18,7 @@ use crate::protocol::NeutronMessage::{
 };
 use crate::protocol::{
     BlendMode, Channel, DeviceId, GlobalSetting, KeyTrackMode, NeutronMessage, OscRange,
-    ToggleOption, BEHRINGER_MANUFACTURER, COMMS_PROTOCOL_V1, NEUTRON_DEVICE,
-    NEUTRON_MESSAGE_HEADER, SYSEX_EOX, SYSEX_MESSAGE_START,
+    ToggleOption, COMMS_PROTOCOL_V1, NEUTRON_MESSAGE_HEADER, SYSEX_EOX,
 };
 
 fn toggle_option(input: &[u8]) -> IResult<&[u8], ToggleOption> {

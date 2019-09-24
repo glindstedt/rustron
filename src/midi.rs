@@ -1,9 +1,7 @@
-use std::fmt::Display;
 use std::sync::mpsc::Sender;
 
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, PortInfoError};
 
-use crate::parser::neutron_message;
 use crate::protocol;
 
 pub trait SysExPacket {
