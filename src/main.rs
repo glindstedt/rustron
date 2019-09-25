@@ -8,11 +8,10 @@ use tui::layout::{Constraint, Direction, Layout};
 use tui::widgets::{Block, Borders, List, SelectableList, Text, Widget};
 use tui::Terminal;
 
-use rustron::events::{Event, Events};
-use rustron::midi;
-use rustron::parser::neutron_message;
-use rustron::protocol;
-use rustron::protocol::{
+use crate::events::{Event, Events};
+use rustron_lib::parser::neutron_message;
+use rustron_lib::protocol;
+use rustron_lib::protocol::{
     BlendMode::{Blend, Switch},
     DeviceId::Multicast,
     GlobalSetting,
@@ -26,6 +25,9 @@ use rustron::protocol::{
     OscRange::{Eight, PlusMinusTen, Sixteen, ThirtyTwo},
     ToggleOption::{Off, On},
 };
+
+mod events;
+mod midi;
 
 pub struct State {
     // TODO will grow indefinitely, does it matter?

@@ -1,4 +1,3 @@
-use crate::midi::SysExPacket;
 use std::fmt::{Debug, Display};
 
 pub const SYSEX_MESSAGE_START: u8 = 0xf0;
@@ -15,10 +14,6 @@ pub const NEUTRON_MESSAGE_HEADER: [u8; 5] = [
 pub const MAYBE_STATIC: [u8; 3] = [0x28, 0x7f, 0x0a];
 
 pub const COMMS_PROTOCOL_V1: u8 = 0x01;
-
-pub fn is_behringer_packet(bytes: &[u8]) -> bool {
-    bytes.is_sysex() && bytes.sysex_manufacturer() == BEHRINGER_MANUFACTURER
-}
 
 pub fn format_behringer_packet(bytes: &[u8]) -> String {
     let device = bytes[4];

@@ -2,23 +2,6 @@ use std::sync::mpsc::Sender;
 
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, PortInfoError};
 
-use crate::protocol;
-
-pub trait SysExPacket {
-    fn is_sysex(&self) -> bool;
-    fn sysex_manufacturer(&self) -> &[u8];
-}
-
-impl SysExPacket for [u8] {
-    fn is_sysex(&self) -> bool {
-        self[0] == protocol::SYSEX_MESSAGE_START && self[self.len() - 1] == protocol::SYSEX_EOX
-    }
-
-    fn sysex_manufacturer(&self) -> &[u8] {
-        &self[1..4]
-    }
-}
-
 pub struct MidiConnection {
     // TODO what about closing connections?
     midi_out: Option<MidiOutputConnection>,
