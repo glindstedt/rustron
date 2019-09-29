@@ -8,9 +8,9 @@ use nom::{
 };
 
 use crate::protocol::GlobalSetting::{
-    LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, MidiChannel,
-    Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range,
-    Osc2TunePotBypass, OscSync, ParaphonicMode, VcfKeyTracking,
+    DisableMidiDips, LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder,
+    LfoRetrigger, MidiChannel, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode,
+    Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, VcfKeyTracking,
 };
 use crate::protocol::NeutronMessage::{
     CalibrationModeCommand, GlobalSettingUpdate, RestoreGlobalSetting, SetGlobalSetting,
@@ -74,6 +74,9 @@ fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
         map(tag(&[0x39, 0x00]), |_| LfoResetOrder),
         map(preceded(tag(&[0x11]), toggle_option), |t| VcfKeyTracking(t)),
         map(preceded(tag(&[0x00]), channel), |c| MidiChannel(c)),
+        map(preceded(tag(&[0x0a]), toggle_option), |t| {
+            DisableMidiDips(t)
+        }),
     ))(input)
 }
 
@@ -150,9 +153,9 @@ mod test {
     };
     use crate::protocol::BlendMode::{Blend, Switch};
     use crate::protocol::GlobalSetting::{
-        LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger,
-        MidiChannel, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack,
-        Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, VcfKeyTracking,
+        DisableMidiDips, LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder,
+        LfoRetrigger, MidiChannel, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode,
+        Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, VcfKeyTracking,
     };
     use crate::protocol::KeyTrackMode::Track;
     use crate::protocol::NeutronMessage::{
@@ -298,6 +301,10 @@ mod test {
         assert_eq!(
             global_setting(to_vec(MidiChannel(Channel::Thirteen)).as_slice()),
             Ok((&[][..], MidiChannel(Channel::Thirteen)))
+        );
+        assert_eq!(
+            global_setting(to_vec(DisableMidiDips(On)).as_slice()),
+            Ok((&[][..], DisableMidiDips(On)))
         );
     }
 
