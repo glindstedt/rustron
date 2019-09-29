@@ -132,6 +132,7 @@ pub enum GlobalSetting {
     LfoMidiSync(ToggleOption),
     LfoResetOrder,
     VcfKeyTracking(ToggleOption),
+    MidiChannel(Channel),
 }
 
 impl ByteBuilder for GlobalSetting {
@@ -200,6 +201,10 @@ impl ByteBuilder for GlobalSetting {
             GlobalSetting::VcfKeyTracking(t) => {
                 buffer.push(0x11);
                 buffer.push(t.as_byte());
+            }
+            GlobalSetting::MidiChannel(c) => {
+                buffer.push(0x00);
+                buffer.push(c.as_byte());
             }
         }
     }
@@ -433,15 +438,6 @@ pub fn vcf_mode() -> Vec<u8> {
     // 0x01 = 2 (1 Band 2 Low)
     // 0x02 = 3 (1 Low  2 High)
     wrap_message(vec![0x10, 0x00])
-}
-
-// Options
-pub fn midi_channel() -> Vec<u8> {
-    // TODO param
-    // 0x00 = channel 1
-    // ...
-    // 0x0f = channel 16
-    wrap_message(vec![0x00, 0x00])
 }
 
 pub fn disable_midi_dips() -> Vec<u8> {

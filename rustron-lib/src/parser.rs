@@ -8,9 +8,9 @@ use nom::{
 };
 
 use crate::protocol::GlobalSetting::{
-    LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, Osc1BlendMode,
-    Osc1Range, Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass,
-    OscSync, ParaphonicMode, VcfKeyTracking,
+    LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, MidiChannel,
+    Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range,
+    Osc2TunePotBypass, OscSync, ParaphonicMode, VcfKeyTracking,
 };
 use crate::protocol::NeutronMessage::{
     CalibrationModeCommand, GlobalSettingUpdate, RestoreGlobalSetting, SetGlobalSetting,
@@ -73,6 +73,7 @@ fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
         map(preceded(tag(&[0x35]), toggle_option), |t| LfoMidiSync(t)),
         map(tag(&[0x39, 0x00]), |_| LfoResetOrder),
         map(preceded(tag(&[0x11]), toggle_option), |t| VcfKeyTracking(t)),
+        map(preceded(tag(&[0x00]), channel), |c| MidiChannel(c)),
     ))(input)
 }
 
@@ -150,8 +151,8 @@ mod test {
     use crate::protocol::BlendMode::{Blend, Switch};
     use crate::protocol::GlobalSetting::{
         LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger,
-        Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range,
-        Osc2TunePotBypass, OscSync, ParaphonicMode, VcfKeyTracking,
+        MidiChannel, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack,
+        Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, VcfKeyTracking,
     };
     use crate::protocol::KeyTrackMode::Track;
     use crate::protocol::NeutronMessage::{
@@ -293,6 +294,10 @@ mod test {
         assert_eq!(
             global_setting(to_vec(VcfKeyTracking(On)).as_slice()),
             Ok((&[][..], VcfKeyTracking(On)))
+        );
+        assert_eq!(
+            global_setting(to_vec(MidiChannel(Channel::Thirteen)).as_slice()),
+            Ok((&[][..], MidiChannel(Channel::Thirteen)))
         );
     }
 
