@@ -135,6 +135,7 @@ pub enum GlobalSetting {
     MidiChannel(Channel),
     DisableMidiDips(ToggleOption),
     PolyChainMode(ToggleOption),
+    KeyRangeMute(ToggleOption),
 }
 
 impl ByteBuilder for GlobalSetting {
@@ -214,6 +215,10 @@ impl ByteBuilder for GlobalSetting {
             }
             GlobalSetting::PolyChainMode(t) => {
                 buffer.push(0x08);
+                buffer.push(t.as_byte());
+            }
+            GlobalSetting::KeyRangeMute(t) => {
+                buffer.push(0x0b);
                 buffer.push(t.as_byte());
             }
         }
@@ -482,14 +487,6 @@ pub fn assignable_out() -> Vec<u8> {
     // 0x03 = Mod Wheel
     // 0x00 = After Touch
     wrap_message(vec![0x04, 0x00])
-}
-
-pub fn key_range_mute() -> Vec<u8> {
-    wrap_message(vec![0x0b, 0x01])
-}
-
-pub fn key_range_unmute() -> Vec<u8> {
-    wrap_message(vec![0x0b, 0x00])
 }
 
 pub fn key_range_min() -> Vec<u8> {
