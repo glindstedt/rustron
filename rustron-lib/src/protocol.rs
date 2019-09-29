@@ -134,6 +134,7 @@ pub enum GlobalSetting {
     VcfKeyTracking(ToggleOption),
     MidiChannel(Channel),
     DisableMidiDips(ToggleOption),
+    PolyChainMode(ToggleOption),
 }
 
 impl ByteBuilder for GlobalSetting {
@@ -209,6 +210,10 @@ impl ByteBuilder for GlobalSetting {
             }
             GlobalSetting::DisableMidiDips(t) => {
                 buffer.push(0x0a);
+                buffer.push(t.as_byte());
+            }
+            GlobalSetting::PolyChainMode(t) => {
+                buffer.push(0x08);
                 buffer.push(t.as_byte());
             }
         }
@@ -477,14 +482,6 @@ pub fn assignable_out() -> Vec<u8> {
     // 0x03 = Mod Wheel
     // 0x00 = After Touch
     wrap_message(vec![0x04, 0x00])
-}
-
-pub fn poly_chain_mode_on() -> Vec<u8> {
-    wrap_message(vec![0x08, 0x01])
-}
-
-pub fn poly_chain_mode_off() -> Vec<u8> {
-    wrap_message(vec![0x08, 0x00])
 }
 
 pub fn key_range_mute() -> Vec<u8> {

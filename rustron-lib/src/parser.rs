@@ -10,7 +10,8 @@ use nom::{
 use crate::protocol::GlobalSetting::{
     DisableMidiDips, LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder,
     LfoRetrigger, MidiChannel, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode,
-    Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, VcfKeyTracking,
+    Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, PolyChainMode,
+    VcfKeyTracking,
 };
 use crate::protocol::NeutronMessage::{
     CalibrationModeCommand, GlobalSettingUpdate, RestoreGlobalSetting, SetGlobalSetting,
@@ -77,6 +78,7 @@ fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
         map(preceded(tag(&[0x0a]), toggle_option), |t| {
             DisableMidiDips(t)
         }),
+        map(preceded(tag(&[0x08]), toggle_option), |t| PolyChainMode(t)),
     ))(input)
 }
 
@@ -155,7 +157,8 @@ mod test {
     use crate::protocol::GlobalSetting::{
         DisableMidiDips, LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder,
         LfoRetrigger, MidiChannel, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode,
-        Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, VcfKeyTracking,
+        Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, PolyChainMode,
+        VcfKeyTracking,
     };
     use crate::protocol::KeyTrackMode::Track;
     use crate::protocol::NeutronMessage::{
@@ -305,6 +308,10 @@ mod test {
         assert_eq!(
             global_setting(to_vec(DisableMidiDips(On)).as_slice()),
             Ok((&[][..], DisableMidiDips(On)))
+        );
+        assert_eq!(
+            global_setting(to_vec(PolyChainMode(On)).as_slice()),
+            Ok((&[][..], PolyChainMode(On)))
         );
     }
 
