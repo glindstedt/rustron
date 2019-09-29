@@ -159,6 +159,48 @@ impl KeyTrackMode {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LfoIndex {
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+}
+
+impl LfoIndex {
+    pub fn as_byte(&self) -> u8 {
+        match self {
+            LfoIndex::One => 0x00,
+            LfoIndex::Two => 0x01,
+            LfoIndex::Three => 0x02,
+            LfoIndex::Four => 0x03,
+            LfoIndex::Five => 0x04,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LfoShape {
+    Sine,
+    Triangle,
+    FallingSaw,
+    Square,
+    RisingSaw,
+}
+
+impl LfoShape {
+    pub fn as_byte(&self) -> u8 {
+        match self {
+            LfoShape::Sine => 0x00,
+            LfoShape::Triangle => 0x01,
+            LfoShape::FallingSaw => 0x02,
+            LfoShape::Square => 0x03,
+            LfoShape::RisingSaw => 0x04,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GlobalSetting {
     ParaphonicMode(ToggleOption),
     OscSync(ToggleOption),
@@ -175,6 +217,7 @@ pub enum GlobalSetting {
     LfoRetrigger(ToggleOption),
     LfoMidiSync(ToggleOption),
     LfoDepth(Percent),
+    LfoShapeOrder(LfoIndex, LfoShape),
     LfoResetOrder,
     VcfKeyTracking(ToggleOption),
     VcfModDepth(Percent),
@@ -279,6 +322,11 @@ impl ByteBuilder for GlobalSetting {
             GlobalSetting::VcfModDepth(p) => {
                 buffer.push(0x14);
                 buffer.push(p.as_byte());
+            }
+            GlobalSetting::LfoShapeOrder(i, s) => {
+                buffer.push(0x38);
+                buffer.push(i.as_byte());
+                buffer.push(s.as_byte());
             }
         }
     }
@@ -445,22 +493,6 @@ pub fn lfo_key_tracking() -> Vec<u8> {
     // ...
     // 0x6c = C7
     wrap_message(vec![0x32, 0x00])
-}
-
-pub fn lfo_shape_order() -> Vec<u8> {
-    // TODO param
-    // For some reason the app sends updates for all shapes when one shape is saved
-    // Positions: 0x00 - 0x04
-    // Shapes:
-    // 0x00 = ∿
-    // 0x01 = /\
-    // 0x02 = |\
-    // 0x03 = _П_
-    // 0x04 = /|
-    wrap_message(vec![
-        0x38, 0x00, // Position
-        0x00, // Shape
-    ])
 }
 
 pub fn lfo_phase_offset() -> Vec<u8> {

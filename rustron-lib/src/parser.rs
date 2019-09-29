@@ -1,7 +1,7 @@
 use nom::branch::alt;
 use nom::bytes::complete::take;
 use nom::combinator::{cut, map};
-use nom::sequence::{separated_pair, terminated};
+use nom::sequence::{pair, separated_pair, terminated};
 use nom::{
     bytes::complete::{tag, take_till1},
     sequence::{delimited, preceded},
@@ -10,7 +10,7 @@ use nom::{
 
 use crate::protocol::GlobalSetting::{
     DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoDepth, LfoKeySync, LfoMidiSync,
-    LfoOneShot, LfoResetOrder, LfoRetrigger, MidiChannel, Osc1BlendMode, Osc1Range,
+    LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, MidiChannel, Osc1BlendMode, Osc1Range,
     Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync,
     ParaphonicMode, PolyChainMode, VcfKeyTracking, VcfModDepth,
 };
@@ -19,8 +19,8 @@ use crate::protocol::NeutronMessage::{
     SoftwareVersionRequest, SoftwareVersionResponse,
 };
 use crate::protocol::{
-    BlendMode, Channel, DeviceId, GlobalSetting, KeyTrackMode, NeutronMessage, OscRange, Percent,
-    ToggleOption, COMMS_PROTOCOL_V1, NEUTRON_MESSAGE_HEADER, SYSEX_EOX,
+    BlendMode, Channel, DeviceId, GlobalSetting, KeyTrackMode, LfoIndex, LfoShape, NeutronMessage,
+    OscRange, Percent, ToggleOption, COMMS_PROTOCOL_V1, NEUTRON_MESSAGE_HEADER, SYSEX_EOX,
 };
 
 fn toggle_option(input: &[u8]) -> IResult<&[u8], ToggleOption> {
@@ -61,6 +61,26 @@ fn key_track_mode(input: &[u8]) -> IResult<&[u8], KeyTrackMode> {
     ))(input)
 }
 
+fn lfo_index(input: &[u8]) -> IResult<&[u8], LfoIndex> {
+    alt((
+        map(tag(&[0x00]), |_| LfoIndex::One),
+        map(tag(&[0x01]), |_| LfoIndex::Two),
+        map(tag(&[0x02]), |_| LfoIndex::Three),
+        map(tag(&[0x03]), |_| LfoIndex::Four),
+        map(tag(&[0x04]), |_| LfoIndex::Five),
+    ))(input)
+}
+
+fn lfo_shape(input: &[u8]) -> IResult<&[u8], LfoShape> {
+    alt((
+        map(tag(&[0x00]), |_| LfoShape::Sine),
+        map(tag(&[0x01]), |_| LfoShape::Triangle),
+        map(tag(&[0x02]), |_| LfoShape::FallingSaw),
+        map(tag(&[0x03]), |_| LfoShape::Square),
+        map(tag(&[0x04]), |_| LfoShape::RisingSaw),
+    ))(input)
+}
+
 fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
     alt((
         alt((
@@ -95,6 +115,10 @@ fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
         alt((
             map(preceded(tag(&[0x0b]), toggle_option), |t| KeyRangeMute(t)),
             map(tag(&[0x06, 0x00]), |_| KeyRangeReset),
+            map(
+                preceded(tag(&[0x38]), pair(lfo_index, lfo_shape)),
+                |(i, s)| LfoShapeOrder(i, s),
+            ),
         )),
     ))(input)
 }
@@ -173,9 +197,9 @@ mod test {
     use crate::protocol::BlendMode::{Blend, Switch};
     use crate::protocol::GlobalSetting::{
         DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoDepth, LfoKeySync,
-        LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, MidiChannel, Osc1BlendMode,
-        Osc1Range, Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass,
-        OscSync, ParaphonicMode, PolyChainMode, VcfKeyTracking, VcfModDepth,
+        LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, MidiChannel,
+        Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range,
+        Osc2TunePotBypass, OscSync, ParaphonicMode, PolyChainMode, VcfKeyTracking, VcfModDepth,
     };
     use crate::protocol::KeyTrackMode::Track;
     use crate::protocol::NeutronMessage::{
@@ -185,8 +209,9 @@ mod test {
     use crate::protocol::OscRange::{PlusMinusTen, ThirtyTwo};
     use crate::protocol::ToggleOption::{Off, On};
     use crate::protocol::{
-        BlendMode, ByteBuilder, Channel, DeviceId, GlobalSetting, KeyTrackMode, OscRange, Percent,
-        ToggleOption, BEHRINGER_MANUFACTURER, NEUTRON_DEVICE, SYSEX_EOX, SYSEX_MESSAGE_START,
+        BlendMode, ByteBuilder, Channel, DeviceId, GlobalSetting, KeyTrackMode, LfoIndex, LfoShape,
+        OscRange, Percent, ToggleOption, BEHRINGER_MANUFACTURER, NEUTRON_DEVICE, SYSEX_EOX,
+        SYSEX_MESSAGE_START,
     };
 
     #[test]
@@ -313,6 +338,10 @@ mod test {
         assert_eq!(
             global_setting(to_vec(LfoDepth(Percent::from_percentage(50))).as_slice()),
             Ok((&[][..], LfoDepth(Percent::from_byte(31))))
+        );
+        assert_eq!(
+            global_setting(to_vec(LfoShapeOrder(LfoIndex::Two, LfoShape::RisingSaw)).as_slice()),
+            Ok((&[][..], LfoShapeOrder(LfoIndex::Two, LfoShape::RisingSaw)))
         );
         assert_eq!(
             global_setting(to_vec(LfoResetOrder).as_slice()),
