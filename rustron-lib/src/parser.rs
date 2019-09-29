@@ -1,10 +1,8 @@
-use nom::branch::alt;
-use nom::bytes::complete::take;
-use nom::combinator::{cut, map};
-use nom::sequence::{pair, separated_pair, terminated};
 use nom::{
-    bytes::complete::{tag, take_till1},
-    sequence::{delimited, preceded},
+    branch::alt,
+    bytes::complete::{is_not, tag, take},
+    combinator::{cut, map},
+    sequence::{delimited, pair, preceded, separated_pair, terminated},
     IResult,
 };
 
@@ -152,7 +150,7 @@ fn device_id(input: &[u8]) -> IResult<&[u8], DeviceId> {
 }
 
 fn version(input: &[u8]) -> IResult<&[u8], String> {
-    map(take_till1(|b| b == SYSEX_EOX), |v| {
+    map(is_not([SYSEX_EOX]), |v| {
         String::from_utf8_lossy(v).into_owned()
     })(input)
 }
