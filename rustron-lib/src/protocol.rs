@@ -136,6 +136,7 @@ pub enum GlobalSetting {
     DisableMidiDips(ToggleOption),
     PolyChainMode(ToggleOption),
     KeyRangeMute(ToggleOption),
+    KeyRangeReset,
 }
 
 impl ByteBuilder for GlobalSetting {
@@ -220,6 +221,10 @@ impl ByteBuilder for GlobalSetting {
             GlobalSetting::KeyRangeMute(t) => {
                 buffer.push(0x0b);
                 buffer.push(t.as_byte());
+            }
+            GlobalSetting::KeyRangeReset => {
+                buffer.push(0x06);
+                buffer.push(0x00);
             }
         }
     }
@@ -504,10 +509,6 @@ pub fn key_range_max() -> Vec<u8> {
     // ...
     // 0x21 = A0
     wrap_message(vec![0x0d, 0x60])
-}
-
-pub fn key_range_reset() -> Vec<u8> {
-    wrap_message(vec![0x06, 0x00])
 }
 
 pub fn restore_default_settings() -> Vec<u8> {

@@ -8,10 +8,10 @@ use nom::{
 };
 
 use crate::protocol::GlobalSetting::{
-    DisableMidiDips, KeyRangeMute, LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot,
-    LfoResetOrder, LfoRetrigger, MidiChannel, Osc1BlendMode, Osc1Range, Osc1TunePotBypass,
-    Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode,
-    PolyChainMode, VcfKeyTracking,
+    DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoKeySync, LfoMidiSync,
+    LfoOneShot, LfoResetOrder, LfoRetrigger, MidiChannel, Osc1BlendMode, Osc1Range,
+    Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync,
+    ParaphonicMode, PolyChainMode, VcfKeyTracking,
 };
 use crate::protocol::NeutronMessage::{
     CalibrationModeCommand, GlobalSettingUpdate, RestoreGlobalSetting, SetGlobalSetting,
@@ -80,6 +80,7 @@ fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
         }),
         map(preceded(tag(&[0x08]), toggle_option), |t| PolyChainMode(t)),
         map(preceded(tag(&[0x0b]), toggle_option), |t| KeyRangeMute(t)),
+        map(tag(&[0x06, 0x00]), |_| KeyRangeReset),
     ))(input)
 }
 
@@ -156,10 +157,10 @@ mod test {
     };
     use crate::protocol::BlendMode::{Blend, Switch};
     use crate::protocol::GlobalSetting::{
-        DisableMidiDips, KeyRangeMute, LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot,
-        LfoResetOrder, LfoRetrigger, MidiChannel, Osc1BlendMode, Osc1Range, Osc1TunePotBypass,
-        Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode,
-        PolyChainMode, VcfKeyTracking,
+        DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoKeySync, LfoMidiSync,
+        LfoOneShot, LfoResetOrder, LfoRetrigger, MidiChannel, Osc1BlendMode, Osc1Range,
+        Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync,
+        ParaphonicMode, PolyChainMode, VcfKeyTracking,
     };
     use crate::protocol::KeyTrackMode::Track;
     use crate::protocol::NeutronMessage::{
@@ -317,6 +318,10 @@ mod test {
         assert_eq!(
             global_setting(to_vec(KeyRangeMute(On)).as_slice()),
             Ok((&[][..], KeyRangeMute(On)))
+        );
+        assert_eq!(
+            global_setting(to_vec(KeyRangeReset).as_slice()),
+            Ok((&[][..], KeyRangeReset))
         );
     }
 
