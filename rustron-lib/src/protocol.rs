@@ -63,6 +63,50 @@ impl ToggleOption {
     }
 }
 
+/// A percentage value representation for the Neutron. The value will be capped to 63 (0x3f), as
+/// that is the value that corresponds to 100% in the Neutron. This means that the resolution
+/// is 64 different values, with 0 = 0% and 63 = 100%.
+///
+/// # Example
+///
+/// ```rust
+/// use rustron_lib::protocol::Percent;
+///
+/// let p1 = Percent::from_byte(255);
+/// assert_eq!(p1.as_byte(), 63);
+/// assert_eq!(p1.as_percentage(), 100 as f32);
+///
+/// let p2 = Percent::from_percentage(50);
+/// assert_eq!(p2.as_byte(), 31);
+/// assert_eq!(p2.as_percentage(), 49.20635);
+/// ```
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Percent {
+    value: u8,
+}
+
+impl Percent {
+    pub fn from_byte(value: u8) -> Self {
+        return Percent {
+            value: value.min(63),
+        };
+    }
+
+    pub fn from_percentage(value: u8) -> Self {
+        return Percent {
+            value: ((value.min(100) as f32 / 100f32) * 63f32) as u8,
+        };
+    }
+
+    pub fn as_byte(&self) -> u8 {
+        return self.value;
+    }
+
+    pub fn as_percentage(&self) -> f32 {
+        return self.value as f32 / 63f32 * 100f32;
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlendMode {
     Switch,
@@ -130,8 +174,10 @@ pub enum GlobalSetting {
     LfoOneShot(ToggleOption),
     LfoRetrigger(ToggleOption),
     LfoMidiSync(ToggleOption),
+    LfoDepth(Percent),
     LfoResetOrder,
     VcfKeyTracking(ToggleOption),
+    VcfModDepth(Percent),
     MidiChannel(Channel),
     DisableMidiDips(ToggleOption),
     PolyChainMode(ToggleOption),
@@ -225,6 +271,14 @@ impl ByteBuilder for GlobalSetting {
             GlobalSetting::KeyRangeReset => {
                 buffer.push(0x06);
                 buffer.push(0x00);
+            }
+            GlobalSetting::LfoDepth(p) => {
+                buffer.push(0x34);
+                buffer.push(p.as_byte());
+            }
+            GlobalSetting::VcfModDepth(p) => {
+                buffer.push(0x14);
+                buffer.push(p.as_byte());
             }
         }
     }
@@ -393,14 +447,6 @@ pub fn lfo_key_tracking() -> Vec<u8> {
     wrap_message(vec![0x32, 0x00])
 }
 
-pub fn lfo_depth() -> Vec<u8> {
-    // TODO parameter
-    // 0x00 = 0%
-    // ...
-    // 0x3f = 100%
-    wrap_message(vec![0x34, 0x00])
-}
-
 pub fn lfo_shape_order() -> Vec<u8> {
     // TODO param
     // For some reason the app sends updates for all shapes when one shape is saved
@@ -434,13 +480,6 @@ pub fn lfo_phase_offset() -> Vec<u8> {
         0x38, 0x00, // Position
         0x00, // Offset
     ])
-}
-
-pub fn vcf_mod_depth() -> Vec<u8> {
-    // TODO param
-    // 0x00 = 0%
-    // 0x3f = 100%
-    wrap_message(vec![0x14, 0x00])
 }
 
 pub fn vcf_mod_source() -> Vec<u8> {
