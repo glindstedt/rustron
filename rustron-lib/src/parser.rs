@@ -368,77 +368,61 @@ mod test {
         buf
     }
 
+    macro_rules! verify_global_setting {
+        ($($setting:tt)*) => {
+            assert_eq!(
+                global_setting(to_vec($($setting)*).as_slice()),
+                Ok((&[][..], $($setting)*))
+            );
+        };
+    }
+
+    macro_rules! verify_global_setting_variants {
+        ($container:ident, $enum:ident) => {
+            for x in $enum::iter() {
+                assert_eq!(
+                    global_setting(to_vec($container(x)).as_slice()),
+                    Ok((&[][..], $container(x)))
+                );
+            }
+        };
+    }
+
     #[test]
     fn test_global_setting() {
-        assert_eq!(
-            global_setting(to_vec(ParaphonicMode(On)).as_slice()),
-            Ok((&[][..], ParaphonicMode(On)))
-        );
-        assert_eq!(
-            global_setting(to_vec(OscSync(Off)).as_slice()),
-            Ok((&[][..], OscSync(Off)))
-        );
-        assert_eq!(
-            global_setting(to_vec(Osc1BlendMode(Blend)).as_slice()),
-            Ok((&[][..], Osc1BlendMode(Blend)))
-        );
-        assert_eq!(
-            global_setting(to_vec(Osc2BlendMode(Switch)).as_slice()),
-            Ok((&[][..], Osc2BlendMode(Switch)))
-        );
-        assert_eq!(
-            global_setting(to_vec(Osc1TunePotBypass(On)).as_slice()),
-            Ok((&[][..], Osc1TunePotBypass(On)))
-        );
-        assert_eq!(
-            global_setting(to_vec(Osc2TunePotBypass(On)).as_slice()),
-            Ok((&[][..], Osc2TunePotBypass(On)))
-        );
-        assert_eq!(
-            global_setting(to_vec(Osc1Range(ThirtyTwo)).as_slice()),
-            Ok((&[][..], Osc1Range(ThirtyTwo)))
-        );
-        assert_eq!(
-            global_setting(to_vec(Osc2Range(PlusMinusTen)).as_slice()),
-            Ok((&[][..], Osc2Range(PlusMinusTen)))
-        );
-        assert_eq!(
-            global_setting(to_vec(Osc2KeyTrack(Track)).as_slice()),
-            Ok((&[][..], Osc2KeyTrack(Track)))
-        );
-        assert_eq!(
-            global_setting(to_vec(Osc1Autoglide(AutoglideSemitones::MinusThree)).as_slice()),
-            Ok((&[][..], Osc1Autoglide(AutoglideSemitones::MinusThree)))
-        );
-        for semi in AutoglideSemitones::iter() {
-            assert_eq!(
-                global_setting(to_vec(Osc2Autoglide(semi)).as_slice()),
-                Ok((&[][..], Osc2Autoglide(semi)))
-            );
-        }
-        assert_eq!(
-            global_setting(to_vec(LfoBlendMode(Blend)).as_slice()),
-            Ok((&[][..], LfoBlendMode(Blend)))
-        );
-        assert_eq!(
-            global_setting(to_vec(LfoKeySync(On)).as_slice()),
-            Ok((&[][..], LfoKeySync(On)))
-        );
-        assert_eq!(
-            global_setting(to_vec(LfoOneShot(On)).as_slice()),
-            Ok((&[][..], LfoOneShot(On)))
-        );
-        assert_eq!(
-            global_setting(to_vec(LfoRetrigger(On)).as_slice()),
-            Ok((&[][..], LfoRetrigger(On)))
-        );
-        assert_eq!(
-            global_setting(to_vec(LfoMidiSync(On)).as_slice()),
-            Ok((&[][..], LfoMidiSync(On)))
-        );
+        verify_global_setting!(ParaphonicMode(On));
+        verify_global_setting!(OscSync(Off));
+        verify_global_setting!(Osc1BlendMode(Blend));
+        verify_global_setting!(Osc2BlendMode(Switch));
+        verify_global_setting!(Osc1TunePotBypass(On));
+        verify_global_setting!(Osc2TunePotBypass(On));
+        verify_global_setting!(Osc1Range(ThirtyTwo));
+        verify_global_setting!(Osc1Range(PlusMinusTen));
+        verify_global_setting!(Osc2KeyTrack(Track));
+        verify_global_setting_variants!(Osc1Autoglide, AutoglideSemitones);
+        verify_global_setting_variants!(Osc2Autoglide, AutoglideSemitones);
+        verify_global_setting!(LfoBlendMode(Blend));
+        verify_global_setting!(LfoKeySync(On));
+        verify_global_setting!(LfoOneShot(On));
+        verify_global_setting!(LfoRetrigger(On));
+        verify_global_setting!(LfoMidiSync(On));
+        verify_global_setting!(LfoResetOrder);
+        verify_global_setting!(VcfKeyTracking(On));
+        verify_global_setting_variants!(VcfModSource, ModSource);
+        verify_global_setting_variants!(MidiChannel, Channel);
+        verify_global_setting!(DisableMidiDips(On));
+        verify_global_setting!(PolyChainMode(On));
+        verify_global_setting!(KeyRangeMute(On));
+        verify_global_setting!(KeyRangeReset);
+        verify_global_setting_variants!(AssignOut, AssignOutOption);
+        verify_global_setting!(EnvRetriggerMode(RetriggerMode::Legato));
         assert_eq!(
             global_setting(to_vec(LfoDepth(Percent::from_percentage(50))).as_slice()),
             Ok((&[][..], LfoDepth(Percent::from_byte(31))))
+        );
+        assert_eq!(
+            global_setting(to_vec(VcfModDepth(Percent::from_percentage(50))).as_slice()),
+            Ok((&[][..], VcfModDepth(Percent::from_byte(31))))
         );
         for shape in LfoShape::iter() {
             assert_eq!(
@@ -452,56 +436,6 @@ mod test {
                 Ok((&[][..], LfoShapePhase(LfoIndex::Three, phase)))
             );
         }
-        assert_eq!(
-            global_setting(to_vec(LfoResetOrder).as_slice()),
-            Ok((&[][..], LfoResetOrder))
-        );
-        assert_eq!(
-            global_setting(to_vec(VcfKeyTracking(On)).as_slice()),
-            Ok((&[][..], VcfKeyTracking(On)))
-        );
-        assert_eq!(
-            global_setting(to_vec(VcfModDepth(Percent::from_percentage(50))).as_slice()),
-            Ok((&[][..], VcfModDepth(Percent::from_byte(31))))
-        );
-        for source in ModSource::iter() {
-            assert_eq!(
-                global_setting(to_vec(VcfModSource(source)).as_slice()),
-                Ok((&[][..], VcfModSource(source)))
-            );
-        }
-        for channel in Channel::iter() {
-            assert_eq!(
-                global_setting(to_vec(MidiChannel(channel)).as_slice()),
-                Ok((&[][..], MidiChannel(channel)))
-            );
-        }
-        assert_eq!(
-            global_setting(to_vec(DisableMidiDips(On)).as_slice()),
-            Ok((&[][..], DisableMidiDips(On)))
-        );
-        assert_eq!(
-            global_setting(to_vec(PolyChainMode(On)).as_slice()),
-            Ok((&[][..], PolyChainMode(On)))
-        );
-        assert_eq!(
-            global_setting(to_vec(KeyRangeMute(On)).as_slice()),
-            Ok((&[][..], KeyRangeMute(On)))
-        );
-        assert_eq!(
-            global_setting(to_vec(KeyRangeReset).as_slice()),
-            Ok((&[][..], KeyRangeReset))
-        );
-        for out in AssignOutOption::iter() {
-            assert_eq!(
-                global_setting(to_vec(AssignOut(out)).as_slice()),
-                Ok((&[][..], AssignOut(out)))
-            );
-        }
-        assert_eq!(
-            global_setting(to_vec(EnvRetriggerMode(RetriggerMode::Legato)).as_slice()),
-            Ok((&[][..], EnvRetriggerMode(RetriggerMode::Legato)))
-        );
     }
 
     #[test]
