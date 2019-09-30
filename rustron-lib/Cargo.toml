@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 nom = "5.0.0"
 hex = "0.3.2"
+strum = "0.16.0"
+strum_macros = "0.16.0"

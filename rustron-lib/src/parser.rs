@@ -7,19 +7,19 @@ use nom::{
 };
 
 use crate::protocol::GlobalSetting::{
-    DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoDepth, LfoKeySync, LfoMidiSync,
-    LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, LfoShapePhase, MidiChannel,
-    Osc1Autoglide, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2Autoglide, Osc2BlendMode,
-    Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, PolyChainMode,
-    VcfKeyTracking, VcfModDepth, VcfModSource,
+    AssignOut, DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoDepth, LfoKeySync,
+    LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, LfoShapePhase,
+    MidiChannel, Osc1Autoglide, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2Autoglide,
+    Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode,
+    PolyChainMode, VcfKeyTracking, VcfModDepth, VcfModSource,
 };
 use crate::protocol::NeutronMessage::{
     CalibrationModeCommand, GlobalSettingUpdate, RestoreGlobalSetting, SetGlobalSetting,
     SoftwareVersionRequest, SoftwareVersionResponse,
 };
 use crate::protocol::{
-    AutoglideSemitones, BlendMode, Channel, DeviceId, GlobalSetting, KeyTrackMode, LfoIndex,
-    LfoPhaseOffset, LfoShape, ModSource, NeutronMessage, OscRange, Percent, ToggleOption,
+    AssignOutOption, AutoglideSemitones, BlendMode, Channel, DeviceId, GlobalSetting, KeyTrackMode,
+    LfoIndex, LfoPhaseOffset, LfoShape, ModSource, NeutronMessage, OscRange, Percent, ToggleOption,
     COMMS_PROTOCOL_V1, NEUTRON_MESSAGE_HEADER, SYSEX_EOX,
 };
 
@@ -137,6 +137,16 @@ fn mod_source(input: &[u8]) -> IResult<&[u8], ModSource> {
     ))(input)
 }
 
+fn assign_out_option(input: &[u8]) -> IResult<&[u8], AssignOutOption> {
+    alt((
+        map(tag(&[0x00]), |_| AssignOutOption::Osc1),
+        map(tag(&[0x01]), |_| AssignOutOption::Osc2),
+        map(tag(&[0x02]), |_| AssignOutOption::Velocity),
+        map(tag(&[0x03]), |_| AssignOutOption::ModWheel),
+        map(tag(&[0x04]), |_| AssignOutOption::AfterTouch),
+    ))(input)
+}
+
 fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
     alt((
         alt((
@@ -186,6 +196,9 @@ fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
                 |(i, o)| LfoShapePhase(i, o),
             ),
             map(preceded(tag(&[0x12]), mod_source), |(m)| VcfModSource(m)),
+            map(preceded(tag(&[0x04]), assign_out_option), |(o)| {
+                AssignOut(o)
+            }),
         )),
     ))(input)
 }
@@ -263,11 +276,11 @@ mod test {
     };
     use crate::protocol::BlendMode::{Blend, Switch};
     use crate::protocol::GlobalSetting::{
-        DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoDepth, LfoKeySync,
-        LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, LfoShapePhase,
-        MidiChannel, Osc1Autoglide, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2Autoglide,
-        Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode,
-        PolyChainMode, VcfKeyTracking, VcfModDepth, VcfModSource,
+        AssignOut, DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoDepth,
+        LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder,
+        LfoShapePhase, MidiChannel, Osc1Autoglide, Osc1BlendMode, Osc1Range, Osc1TunePotBypass,
+        Osc2Autoglide, Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync,
+        ParaphonicMode, PolyChainMode, VcfKeyTracking, VcfModDepth, VcfModSource,
     };
     use crate::protocol::KeyTrackMode::Track;
     use crate::protocol::NeutronMessage::{
@@ -277,10 +290,12 @@ mod test {
     use crate::protocol::OscRange::{PlusMinusTen, ThirtyTwo};
     use crate::protocol::ToggleOption::{Off, On};
     use crate::protocol::{
-        AutoglideSemitones, BlendMode, ByteBuilder, Channel, DeviceId, GlobalSetting, KeyTrackMode,
-        LfoIndex, LfoPhaseOffset, LfoShape, ModSource, OscRange, Percent, ToggleOption,
-        BEHRINGER_MANUFACTURER, NEUTRON_DEVICE, SYSEX_EOX, SYSEX_MESSAGE_START,
+        AssignOutOption, AutoglideSemitones, BlendMode, ByteBuilder, Channel, DeviceId,
+        GlobalSetting, KeyTrackMode, LfoIndex, LfoPhaseOffset, LfoShape, ModSource, OscRange,
+        Percent, ToggleOption, BEHRINGER_MANUFACTURER, NEUTRON_DEVICE, SYSEX_EOX,
+        SYSEX_MESSAGE_START,
     };
+    use strum::IntoEnumIterator;
 
     #[test]
     fn test_toggle_option() {
@@ -468,6 +483,12 @@ mod test {
             global_setting(to_vec(KeyRangeReset).as_slice()),
             Ok((&[][..], KeyRangeReset))
         );
+        for out in AssignOutOption::iter() {
+            assert_eq!(
+                global_setting(to_vec(AssignOut(out)).as_slice()),
+                Ok((&[][..], AssignOut(out)))
+            );
+        }
     }
 
     #[test]

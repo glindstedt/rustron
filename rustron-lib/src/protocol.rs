@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Display};
+use strum_macros::EnumIter;
 
 pub const SYSEX_MESSAGE_START: u8 = 0xf0;
 pub const SYSEX_EOX: u8 = 0xf7;
@@ -308,6 +309,27 @@ impl ModSource {
     }
 }
 
+#[derive(Copy, Clone, Debug, EnumIter, PartialEq)]
+pub enum AssignOutOption {
+    Osc1,
+    Osc2,
+    Velocity,
+    ModWheel,
+    AfterTouch,
+}
+
+impl AssignOutOption {
+    pub fn as_byte(&self) -> u8 {
+        match self {
+            AssignOutOption::Osc1 => 0x00,
+            AssignOutOption::Osc2 => 0x01,
+            AssignOutOption::Velocity => 0x02,
+            AssignOutOption::ModWheel => 0x03,
+            AssignOutOption::AfterTouch => 0x04,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GlobalSetting {
     ParaphonicMode(ToggleOption),
@@ -338,6 +360,7 @@ pub enum GlobalSetting {
     PolyChainMode(ToggleOption),
     KeyRangeMute(ToggleOption),
     KeyRangeReset,
+    AssignOut(AssignOutOption),
 }
 
 impl ByteBuilder for GlobalSetting {
@@ -456,6 +479,10 @@ impl ByteBuilder for GlobalSetting {
             GlobalSetting::VcfModSource(m) => {
                 buffer.push(0x12);
                 buffer.push(m.as_byte());
+            }
+            GlobalSetting::AssignOut(o) => {
+                buffer.push(0x04);
+                buffer.push(o.as_byte());
             }
         }
     }
@@ -642,16 +669,6 @@ pub fn pitch_bend_range() -> Vec<u8> {
     // ...
     // 0x18 = 24
     wrap_message(vec![0x03, 0x00])
-}
-
-pub fn assignable_out() -> Vec<u8> {
-    // TODO param
-    // 0x00 = OSC 1
-    // 0x01 = OSC 2
-    // 0x02 = Velocity
-    // 0x03 = Mod Wheel
-    // 0x00 = After Touch
-    wrap_message(vec![0x04, 0x00])
 }
 
 pub fn key_range_min() -> Vec<u8> {
