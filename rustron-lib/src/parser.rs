@@ -7,11 +7,11 @@ use nom::{
 };
 
 use crate::protocol::GlobalSetting::{
-    AssignOut, DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoDepth, LfoKeySync,
-    LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, LfoShapePhase,
-    MidiChannel, Osc1Autoglide, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2Autoglide,
-    Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode,
-    PolyChainMode, VcfKeyTracking, VcfModDepth, VcfModSource,
+    AssignOut, DisableMidiDips, EnvRetriggerMode, KeyRangeMute, KeyRangeReset, LfoBlendMode,
+    LfoDepth, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder,
+    LfoShapePhase, MidiChannel, Osc1Autoglide, Osc1BlendMode, Osc1Range, Osc1TunePotBypass,
+    Osc2Autoglide, Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync,
+    ParaphonicMode, PolyChainMode, VcfKeyTracking, VcfModDepth, VcfModSource,
 };
 use crate::protocol::NeutronMessage::{
     CalibrationModeCommand, GlobalSettingUpdate, RestoreGlobalSetting, SetGlobalSetting,
@@ -19,8 +19,8 @@ use crate::protocol::NeutronMessage::{
 };
 use crate::protocol::{
     AssignOutOption, AutoglideSemitones, BlendMode, Channel, DeviceId, GlobalSetting, KeyTrackMode,
-    LfoIndex, LfoPhaseOffset, LfoShape, ModSource, NeutronMessage, OscRange, Percent, ToggleOption,
-    COMMS_PROTOCOL_V1, NEUTRON_MESSAGE_HEADER, SYSEX_EOX,
+    LfoIndex, LfoPhaseOffset, LfoShape, ModSource, NeutronMessage, OscRange, Percent,
+    RetriggerMode, ToggleOption, COMMS_PROTOCOL_V1, NEUTRON_MESSAGE_HEADER, SYSEX_EOX,
 };
 
 fn toggle_option(input: &[u8]) -> IResult<&[u8], ToggleOption> {
@@ -42,6 +42,13 @@ fn blend_mode(input: &[u8]) -> IResult<&[u8], BlendMode> {
     alt((
         map(tag(&[0x01]), |_| BlendMode::Switch),
         map(tag(&[0x00]), |_| BlendMode::Blend),
+    ))(input)
+}
+
+fn retrigger_mode(input: &[u8]) -> IResult<&[u8], RetriggerMode> {
+    alt((
+        map(tag(&[0x01]), |_| RetriggerMode::Legato),
+        map(tag(&[0x00]), |_| RetriggerMode::Staccato),
     ))(input)
 }
 
@@ -195,9 +202,10 @@ fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
                 preceded(tag(&[0x3a]), pair(lfo_index, lfo_phase_offset)),
                 |(i, o)| LfoShapePhase(i, o),
             ),
-            map(preceded(tag(&[0x12]), mod_source), |(m)| VcfModSource(m)),
-            map(preceded(tag(&[0x04]), assign_out_option), |(o)| {
-                AssignOut(o)
+            map(preceded(tag(&[0x12]), mod_source), |m| VcfModSource(m)),
+            map(preceded(tag(&[0x04]), assign_out_option), |o| AssignOut(o)),
+            map(preceded(tag(&[0x05]), retrigger_mode), |m| {
+                EnvRetriggerMode(m)
             }),
         )),
     ))(input)
@@ -276,8 +284,8 @@ mod test {
     };
     use crate::protocol::BlendMode::{Blend, Switch};
     use crate::protocol::GlobalSetting::{
-        AssignOut, DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoDepth,
-        LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder,
+        AssignOut, DisableMidiDips, EnvRetriggerMode, KeyRangeMute, KeyRangeReset, LfoBlendMode,
+        LfoDepth, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder,
         LfoShapePhase, MidiChannel, Osc1Autoglide, Osc1BlendMode, Osc1Range, Osc1TunePotBypass,
         Osc2Autoglide, Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync,
         ParaphonicMode, PolyChainMode, VcfKeyTracking, VcfModDepth, VcfModSource,
@@ -292,7 +300,7 @@ mod test {
     use crate::protocol::{
         AssignOutOption, AutoglideSemitones, BlendMode, ByteBuilder, Channel, DeviceId,
         GlobalSetting, KeyTrackMode, LfoIndex, LfoPhaseOffset, LfoShape, ModSource, OscRange,
-        Percent, ToggleOption, BEHRINGER_MANUFACTURER, NEUTRON_DEVICE, SYSEX_EOX,
+        Percent, RetriggerMode, ToggleOption, BEHRINGER_MANUFACTURER, NEUTRON_DEVICE, SYSEX_EOX,
         SYSEX_MESSAGE_START,
     };
     use strum::IntoEnumIterator;
@@ -490,6 +498,10 @@ mod test {
                 Ok((&[][..], AssignOut(out)))
             );
         }
+        assert_eq!(
+            global_setting(to_vec(EnvRetriggerMode(RetriggerMode::Legato)).as_slice()),
+            Ok((&[][..], EnvRetriggerMode(RetriggerMode::Legato)))
+        );
     }
 
     #[test]

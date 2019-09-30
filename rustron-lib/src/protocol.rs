@@ -331,6 +331,21 @@ impl AssignOutOption {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum RetriggerMode {
+    Staccato,
+    Legato,
+}
+
+impl RetriggerMode {
+    pub fn as_byte(&self) -> u8 {
+        match self {
+            RetriggerMode::Staccato => 0x00,
+            RetriggerMode::Legato => 0x01,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GlobalSetting {
     ParaphonicMode(ToggleOption),
     OscSync(ToggleOption),
@@ -361,6 +376,7 @@ pub enum GlobalSetting {
     KeyRangeMute(ToggleOption),
     KeyRangeReset,
     AssignOut(AssignOutOption),
+    EnvRetriggerMode(RetriggerMode),
 }
 
 impl ByteBuilder for GlobalSetting {
@@ -483,6 +499,10 @@ impl ByteBuilder for GlobalSetting {
             GlobalSetting::AssignOut(o) => {
                 buffer.push(0x04);
                 buffer.push(o.as_byte());
+            }
+            GlobalSetting::EnvRetriggerMode(m) => {
+                buffer.push(0x05);
+                buffer.push(m.as_byte());
             }
         }
     }
@@ -645,14 +665,6 @@ pub fn vcf_mode() -> Vec<u8> {
     // 0x01 = 2 (1 Band 2 Low)
     // 0x02 = 3 (1 Low  2 High)
     wrap_message(vec![0x10, 0x00])
-}
-
-pub fn env_retrigger_staccato() -> Vec<u8> {
-    wrap_message(vec![0x05, 0x00])
-}
-
-pub fn env_retrigger_legato() -> Vec<u8> {
-    wrap_message(vec![0x05, 0x01])
 }
 
 pub fn note_priority() -> Vec<u8> {
