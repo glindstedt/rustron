@@ -402,10 +402,12 @@ mod test {
             global_setting(to_vec(Osc1Autoglide(AutoglideSemitones::MinusThree)).as_slice()),
             Ok((&[][..], Osc1Autoglide(AutoglideSemitones::MinusThree)))
         );
-        assert_eq!(
-            global_setting(to_vec(Osc2Autoglide(AutoglideSemitones::PlusEight)).as_slice()),
-            Ok((&[][..], Osc2Autoglide(AutoglideSemitones::PlusEight)))
-        );
+        for semi in AutoglideSemitones::iter() {
+            assert_eq!(
+                global_setting(to_vec(Osc2Autoglide(semi)).as_slice()),
+                Ok((&[][..], Osc2Autoglide(semi)))
+            );
+        }
         assert_eq!(
             global_setting(to_vec(LfoBlendMode(Blend)).as_slice()),
             Ok((&[][..], LfoBlendMode(Blend)))
@@ -430,23 +432,18 @@ mod test {
             global_setting(to_vec(LfoDepth(Percent::from_percentage(50))).as_slice()),
             Ok((&[][..], LfoDepth(Percent::from_byte(31))))
         );
-        assert_eq!(
-            global_setting(to_vec(LfoShapeOrder(LfoIndex::Two, LfoShape::RisingSaw)).as_slice()),
-            Ok((&[][..], LfoShapeOrder(LfoIndex::Two, LfoShape::RisingSaw)))
-        );
-        assert_eq!(
-            global_setting(
-                to_vec(LfoShapePhase(
-                    LfoIndex::Three,
-                    LfoPhaseOffset::HundredThirtyFive
-                ))
-                .as_slice()
-            ),
-            Ok((
-                &[][..],
-                LfoShapePhase(LfoIndex::Three, LfoPhaseOffset::HundredThirtyFive)
-            ))
-        );
+        for shape in LfoShape::iter() {
+            assert_eq!(
+                global_setting(to_vec(LfoShapeOrder(LfoIndex::Two, shape)).as_slice()),
+                Ok((&[][..], LfoShapeOrder(LfoIndex::Two, shape)))
+            );
+        }
+        for phase in LfoPhaseOffset::iter() {
+            assert_eq!(
+                global_setting(to_vec(LfoShapePhase(LfoIndex::Three, phase)).as_slice()),
+                Ok((&[][..], LfoShapePhase(LfoIndex::Three, phase)))
+            );
+        }
         assert_eq!(
             global_setting(to_vec(LfoResetOrder).as_slice()),
             Ok((&[][..], LfoResetOrder))
@@ -459,14 +456,18 @@ mod test {
             global_setting(to_vec(VcfModDepth(Percent::from_percentage(50))).as_slice()),
             Ok((&[][..], VcfModDepth(Percent::from_byte(31))))
         );
-        assert_eq!(
-            global_setting(to_vec(VcfModSource(ModSource::AfterTouch)).as_slice()),
-            Ok((&[][..], VcfModSource(ModSource::AfterTouch)))
-        );
-        assert_eq!(
-            global_setting(to_vec(MidiChannel(Channel::Thirteen)).as_slice()),
-            Ok((&[][..], MidiChannel(Channel::Thirteen)))
-        );
+        for source in ModSource::iter() {
+            assert_eq!(
+                global_setting(to_vec(VcfModSource(source)).as_slice()),
+                Ok((&[][..], VcfModSource(source)))
+            );
+        }
+        for channel in Channel::iter() {
+            assert_eq!(
+                global_setting(to_vec(MidiChannel(channel)).as_slice()),
+                Ok((&[][..], MidiChannel(channel)))
+            );
+        }
         assert_eq!(
             global_setting(to_vec(DisableMidiDips(On)).as_slice()),
             Ok((&[][..], DisableMidiDips(On)))

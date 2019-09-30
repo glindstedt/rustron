@@ -108,7 +108,7 @@ impl Percent {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, EnumIter, PartialEq)]
 pub enum AutoglideSemitones {
     MinusTwelve,
     MinusEleven,
@@ -241,7 +241,7 @@ impl LfoIndex {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, EnumIter, PartialEq)]
 pub enum LfoShape {
     Sine,
     Triangle,
@@ -263,7 +263,7 @@ impl LfoShape {
 }
 
 /// Lfo phase offset in degrees
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, EnumIter, PartialEq)]
 pub enum LfoPhaseOffset {
     Zero,
     FourtyFive,
@@ -290,7 +290,7 @@ impl LfoPhaseOffset {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, EnumIter, PartialEq)]
 pub enum ModSource {
     Off,
     AfterTouch,
@@ -488,7 +488,7 @@ impl ByteBuilder for GlobalSetting {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, EnumIter, PartialEq)]
 pub enum Channel {
     One,
     Two,
@@ -525,7 +525,7 @@ impl Channel {
             Channel::Twelve => 0x0b,
             Channel::Thirteen => 0x0c,
             Channel::Fourteen => 0x0d,
-            Channel::Fifteen => 0x0d,
+            Channel::Fifteen => 0x0e,
             Channel::Sixteen => 0x0f,
         }
     }
