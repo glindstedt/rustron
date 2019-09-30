@@ -290,6 +290,25 @@ impl LfoPhaseOffset {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum ModSource {
+    Off,
+    AfterTouch,
+    ModWheel,
+    Velocity,
+}
+
+impl ModSource {
+    pub fn as_byte(&self) -> u8 {
+        match self {
+            ModSource::Off => 0x00,
+            ModSource::AfterTouch => 0x01,
+            ModSource::ModWheel => 0x02,
+            ModSource::Velocity => 0x03,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GlobalSetting {
     ParaphonicMode(ToggleOption),
     OscSync(ToggleOption),
@@ -313,6 +332,7 @@ pub enum GlobalSetting {
     LfoResetOrder,
     VcfKeyTracking(ToggleOption),
     VcfModDepth(Percent),
+    VcfModSource(ModSource),
     MidiChannel(Channel),
     DisableMidiDips(ToggleOption),
     PolyChainMode(ToggleOption),
@@ -432,6 +452,10 @@ impl ByteBuilder for GlobalSetting {
                 buffer.push(0x3a);
                 buffer.push(i.as_byte());
                 buffer.push(o.as_byte());
+            }
+            GlobalSetting::VcfModSource(m) => {
+                buffer.push(0x12);
+                buffer.push(m.as_byte());
             }
         }
     }
@@ -586,15 +610,6 @@ pub fn lfo_key_tracking() -> Vec<u8> {
     // ...
     // 0x6c = C7
     wrap_message(vec![0x32, 0x00])
-}
-
-pub fn vcf_mod_source() -> Vec<u8> {
-    // TODO param
-    // 0x00 = OFF
-    // 0x01 = After Touch
-    // 0x02 = Mod Wheel
-    // 0x03 = Velocity
-    wrap_message(vec![0x12, 0x00])
 }
 
 pub fn vcf_mode() -> Vec<u8> {
