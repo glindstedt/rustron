@@ -8,17 +8,19 @@ use nom::{
 
 use crate::protocol::GlobalSetting::{
     DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoDepth, LfoKeySync, LfoMidiSync,
-    LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, MidiChannel, Osc1BlendMode, Osc1Range,
-    Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync,
-    ParaphonicMode, PolyChainMode, VcfKeyTracking, VcfModDepth,
+    LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, MidiChannel, Osc1Autoglide,
+    Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2Autoglide, Osc2BlendMode, Osc2KeyTrack,
+    Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, PolyChainMode, VcfKeyTracking,
+    VcfModDepth,
 };
 use crate::protocol::NeutronMessage::{
     CalibrationModeCommand, GlobalSettingUpdate, RestoreGlobalSetting, SetGlobalSetting,
     SoftwareVersionRequest, SoftwareVersionResponse,
 };
 use crate::protocol::{
-    BlendMode, Channel, DeviceId, GlobalSetting, KeyTrackMode, LfoIndex, LfoShape, NeutronMessage,
-    OscRange, Percent, ToggleOption, COMMS_PROTOCOL_V1, NEUTRON_MESSAGE_HEADER, SYSEX_EOX,
+    AutoglideSemitones, BlendMode, Channel, DeviceId, GlobalSetting, KeyTrackMode, LfoIndex,
+    LfoShape, NeutronMessage, OscRange, Percent, ToggleOption, COMMS_PROTOCOL_V1,
+    NEUTRON_MESSAGE_HEADER, SYSEX_EOX,
 };
 
 fn toggle_option(input: &[u8]) -> IResult<&[u8], ToggleOption> {
@@ -49,6 +51,40 @@ fn osc_range(input: &[u8]) -> IResult<&[u8], OscRange> {
         map(tag(&[0x01]), |_| OscRange::Sixteen),
         map(tag(&[0x02]), |_| OscRange::Eight),
         map(tag(&[0x03]), |_| OscRange::PlusMinusTen),
+    ))(input)
+}
+
+fn autoglide_semitones(input: &[u8]) -> IResult<&[u8], AutoglideSemitones> {
+    alt((
+        alt((
+            map(tag(&[0x00]), |_| AutoglideSemitones::MinusTwelve),
+            map(tag(&[0x01]), |_| AutoglideSemitones::MinusEleven),
+            map(tag(&[0x02]), |_| AutoglideSemitones::MinusTen),
+            map(tag(&[0x03]), |_| AutoglideSemitones::MinusNine),
+            map(tag(&[0x04]), |_| AutoglideSemitones::MinusEight),
+            map(tag(&[0x05]), |_| AutoglideSemitones::MinusSeven),
+            map(tag(&[0x06]), |_| AutoglideSemitones::MinusSix),
+            map(tag(&[0x07]), |_| AutoglideSemitones::MinusFive),
+            map(tag(&[0x08]), |_| AutoglideSemitones::MinusFour),
+            map(tag(&[0x09]), |_| AutoglideSemitones::MinusThree),
+            map(tag(&[0x0a]), |_| AutoglideSemitones::MinusTwo),
+            map(tag(&[0x0b]), |_| AutoglideSemitones::MinusOne),
+        )),
+        alt((
+            map(tag(&[0x0c]), |_| AutoglideSemitones::Zero),
+            map(tag(&[0x0d]), |_| AutoglideSemitones::PlusOne),
+            map(tag(&[0x0e]), |_| AutoglideSemitones::PlusTwo),
+            map(tag(&[0x0f]), |_| AutoglideSemitones::PlusThree),
+            map(tag(&[0x10]), |_| AutoglideSemitones::PlusFour),
+            map(tag(&[0x11]), |_| AutoglideSemitones::PlusFive),
+            map(tag(&[0x12]), |_| AutoglideSemitones::PlusSix),
+            map(tag(&[0x13]), |_| AutoglideSemitones::PlusSeven),
+            map(tag(&[0x14]), |_| AutoglideSemitones::PlusEight),
+            map(tag(&[0x15]), |_| AutoglideSemitones::PlusNine),
+            map(tag(&[0x16]), |_| AutoglideSemitones::PlusTen),
+            map(tag(&[0x17]), |_| AutoglideSemitones::PlusEleven),
+            map(tag(&[0x18]), |_| AutoglideSemitones::PlusTwelve),
+        )),
     ))(input)
 }
 
@@ -111,6 +147,12 @@ fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
             map(preceded(tag(&[0x08]), toggle_option), |t| PolyChainMode(t)),
         )),
         alt((
+            map(preceded(tag(&[0x24]), autoglide_semitones), |s| {
+                Osc1Autoglide(s)
+            }),
+            map(preceded(tag(&[0x25]), autoglide_semitones), |s| {
+                Osc2Autoglide(s)
+            }),
             map(preceded(tag(&[0x0b]), toggle_option), |t| KeyRangeMute(t)),
             map(tag(&[0x06, 0x00]), |_| KeyRangeReset),
             map(
@@ -196,8 +238,9 @@ mod test {
     use crate::protocol::GlobalSetting::{
         DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoDepth, LfoKeySync,
         LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, MidiChannel,
-        Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range,
-        Osc2TunePotBypass, OscSync, ParaphonicMode, PolyChainMode, VcfKeyTracking, VcfModDepth,
+        Osc1Autoglide, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2Autoglide, Osc2BlendMode,
+        Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, PolyChainMode,
+        VcfKeyTracking, VcfModDepth,
     };
     use crate::protocol::KeyTrackMode::Track;
     use crate::protocol::NeutronMessage::{
@@ -207,9 +250,9 @@ mod test {
     use crate::protocol::OscRange::{PlusMinusTen, ThirtyTwo};
     use crate::protocol::ToggleOption::{Off, On};
     use crate::protocol::{
-        BlendMode, ByteBuilder, Channel, DeviceId, GlobalSetting, KeyTrackMode, LfoIndex, LfoShape,
-        OscRange, Percent, ToggleOption, BEHRINGER_MANUFACTURER, NEUTRON_DEVICE, SYSEX_EOX,
-        SYSEX_MESSAGE_START,
+        AutoglideSemitones, BlendMode, ByteBuilder, Channel, DeviceId, GlobalSetting, KeyTrackMode,
+        LfoIndex, LfoShape, OscRange, Percent, ToggleOption, BEHRINGER_MANUFACTURER,
+        NEUTRON_DEVICE, SYSEX_EOX, SYSEX_MESSAGE_START,
     };
 
     #[test]
@@ -312,6 +355,14 @@ mod test {
         assert_eq!(
             global_setting(to_vec(Osc2KeyTrack(Track)).as_slice()),
             Ok((&[][..], Osc2KeyTrack(Track)))
+        );
+        assert_eq!(
+            global_setting(to_vec(Osc1Autoglide(AutoglideSemitones::MinusThree)).as_slice()),
+            Ok((&[][..], Osc1Autoglide(AutoglideSemitones::MinusThree)))
+        );
+        assert_eq!(
+            global_setting(to_vec(Osc2Autoglide(AutoglideSemitones::PlusEight)).as_slice()),
+            Ok((&[][..], Osc2Autoglide(AutoglideSemitones::PlusEight)))
         );
         assert_eq!(
             global_setting(to_vec(LfoBlendMode(Blend)).as_slice()),

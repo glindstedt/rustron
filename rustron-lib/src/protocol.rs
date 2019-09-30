@@ -108,6 +108,67 @@ impl Percent {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum AutoglideSemitones {
+    MinusTwelve,
+    MinusEleven,
+    MinusTen,
+    MinusNine,
+    MinusEight,
+    MinusSeven,
+    MinusSix,
+    MinusFive,
+    MinusFour,
+    MinusThree,
+    MinusTwo,
+    MinusOne,
+    Zero,
+    PlusOne,
+    PlusTwo,
+    PlusThree,
+    PlusFour,
+    PlusFive,
+    PlusSix,
+    PlusSeven,
+    PlusEight,
+    PlusNine,
+    PlusTen,
+    PlusEleven,
+    PlusTwelve,
+}
+
+impl AutoglideSemitones {
+    pub fn as_byte(&self) -> u8 {
+        match self {
+            AutoglideSemitones::MinusTwelve => 0x00,
+            AutoglideSemitones::MinusEleven => 0x01,
+            AutoglideSemitones::MinusTen => 0x02,
+            AutoglideSemitones::MinusNine => 0x03,
+            AutoglideSemitones::MinusEight => 0x04,
+            AutoglideSemitones::MinusSeven => 0x05,
+            AutoglideSemitones::MinusSix => 0x06,
+            AutoglideSemitones::MinusFive => 0x07,
+            AutoglideSemitones::MinusFour => 0x08,
+            AutoglideSemitones::MinusThree => 0x09,
+            AutoglideSemitones::MinusTwo => 0x0a,
+            AutoglideSemitones::MinusOne => 0x0b,
+            AutoglideSemitones::Zero => 0x0c,
+            AutoglideSemitones::PlusOne => 0x0d,
+            AutoglideSemitones::PlusTwo => 0x0e,
+            AutoglideSemitones::PlusThree => 0x0f,
+            AutoglideSemitones::PlusFour => 0x10,
+            AutoglideSemitones::PlusFive => 0x11,
+            AutoglideSemitones::PlusSix => 0x12,
+            AutoglideSemitones::PlusSeven => 0x13,
+            AutoglideSemitones::PlusEight => 0x14,
+            AutoglideSemitones::PlusNine => 0x15,
+            AutoglideSemitones::PlusTen => 0x16,
+            AutoglideSemitones::PlusEleven => 0x17,
+            AutoglideSemitones::PlusTwelve => 0x18,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlendMode {
     Switch,
     Blend,
@@ -211,6 +272,8 @@ pub enum GlobalSetting {
     Osc1Range(OscRange),
     Osc2Range(OscRange),
     Osc2KeyTrack(KeyTrackMode),
+    Osc1Autoglide(AutoglideSemitones),
+    Osc2Autoglide(AutoglideSemitones),
     LfoBlendMode(BlendMode),
     LfoKeySync(ToggleOption),
     LfoOneShot(ToggleOption),
@@ -326,6 +389,14 @@ impl ByteBuilder for GlobalSetting {
             GlobalSetting::LfoShapeOrder(i, s) => {
                 buffer.push(0x38);
                 buffer.push(i.as_byte());
+                buffer.push(s.as_byte());
+            }
+            GlobalSetting::Osc1Autoglide(s) => {
+                buffer.push(0x24);
+                buffer.push(s.as_byte());
+            }
+            GlobalSetting::Osc2Autoglide(s) => {
+                buffer.push(0x25);
                 buffer.push(s.as_byte());
             }
         }
@@ -470,18 +541,6 @@ pub fn osc_key_split() -> Vec<u8> {
     // ...
     // 0x56 = D5
     wrap_message(vec![0x28, 0x00])
-}
-
-pub fn osc_1_autoglide() -> Vec<u8> {
-    // TODO parameter
-    // 0x00 <-> 0x18 for a range of 25 (-12 to +12)
-    wrap_message(vec![0x24, 0x00])
-}
-
-pub fn osc_2_autoglide() -> Vec<u8> {
-    // TODO parameter
-    // 0x00 <-> 0x18 for a range of 25 (-12 to +12)
-    wrap_message(vec![0x25, 0x00])
 }
 
 pub fn lfo_key_tracking() -> Vec<u8> {
