@@ -8,10 +8,10 @@ use nom::{
 
 use crate::protocol::GlobalSetting::{
     DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoDepth, LfoKeySync, LfoMidiSync,
-    LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, MidiChannel, Osc1Autoglide,
-    Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2Autoglide, Osc2BlendMode, Osc2KeyTrack,
-    Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, PolyChainMode, VcfKeyTracking,
-    VcfModDepth,
+    LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, LfoShapePhase, MidiChannel,
+    Osc1Autoglide, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2Autoglide, Osc2BlendMode,
+    Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, PolyChainMode,
+    VcfKeyTracking, VcfModDepth,
 };
 use crate::protocol::NeutronMessage::{
     CalibrationModeCommand, GlobalSettingUpdate, RestoreGlobalSetting, SetGlobalSetting,
@@ -19,7 +19,7 @@ use crate::protocol::NeutronMessage::{
 };
 use crate::protocol::{
     AutoglideSemitones, BlendMode, Channel, DeviceId, GlobalSetting, KeyTrackMode, LfoIndex,
-    LfoShape, NeutronMessage, OscRange, Percent, ToggleOption, COMMS_PROTOCOL_V1,
+    LfoPhaseOffset, LfoShape, NeutronMessage, OscRange, Percent, ToggleOption, COMMS_PROTOCOL_V1,
     NEUTRON_MESSAGE_HEADER, SYSEX_EOX,
 };
 
@@ -115,6 +115,19 @@ fn lfo_shape(input: &[u8]) -> IResult<&[u8], LfoShape> {
     ))(input)
 }
 
+fn lfo_phase_offset(input: &[u8]) -> IResult<&[u8], LfoPhaseOffset> {
+    alt((
+        map(tag(&[0x00]), |_| LfoPhaseOffset::Zero),
+        map(tag(&[0x01]), |_| LfoPhaseOffset::FourtyFive),
+        map(tag(&[0x02]), |_| LfoPhaseOffset::Ninety),
+        map(tag(&[0x03]), |_| LfoPhaseOffset::HundredThirtyFive),
+        map(tag(&[0x04]), |_| LfoPhaseOffset::HundredEighty),
+        map(tag(&[0x05]), |_| LfoPhaseOffset::TwoHundredTwentyFive),
+        map(tag(&[0x06]), |_| LfoPhaseOffset::TwoHundredSeventy),
+        map(tag(&[0x07]), |_| LfoPhaseOffset::ThreeHundredFifteen),
+    ))(input)
+}
+
 fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
     alt((
         alt((
@@ -158,6 +171,10 @@ fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
             map(
                 preceded(tag(&[0x38]), pair(lfo_index, lfo_shape)),
                 |(i, s)| LfoShapeOrder(i, s),
+            ),
+            map(
+                preceded(tag(&[0x3a]), pair(lfo_index, lfo_phase_offset)),
+                |(i, o)| LfoShapePhase(i, o),
             ),
         )),
     ))(input)
@@ -237,10 +254,10 @@ mod test {
     use crate::protocol::BlendMode::{Blend, Switch};
     use crate::protocol::GlobalSetting::{
         DisableMidiDips, KeyRangeMute, KeyRangeReset, LfoBlendMode, LfoDepth, LfoKeySync,
-        LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, MidiChannel,
-        Osc1Autoglide, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2Autoglide, Osc2BlendMode,
-        Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode, PolyChainMode,
-        VcfKeyTracking, VcfModDepth,
+        LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger, LfoShapeOrder, LfoShapePhase,
+        MidiChannel, Osc1Autoglide, Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2Autoglide,
+        Osc2BlendMode, Osc2KeyTrack, Osc2Range, Osc2TunePotBypass, OscSync, ParaphonicMode,
+        PolyChainMode, VcfKeyTracking, VcfModDepth,
     };
     use crate::protocol::KeyTrackMode::Track;
     use crate::protocol::NeutronMessage::{
@@ -251,8 +268,8 @@ mod test {
     use crate::protocol::ToggleOption::{Off, On};
     use crate::protocol::{
         AutoglideSemitones, BlendMode, ByteBuilder, Channel, DeviceId, GlobalSetting, KeyTrackMode,
-        LfoIndex, LfoShape, OscRange, Percent, ToggleOption, BEHRINGER_MANUFACTURER,
-        NEUTRON_DEVICE, SYSEX_EOX, SYSEX_MESSAGE_START,
+        LfoIndex, LfoPhaseOffset, LfoShape, OscRange, Percent, ToggleOption,
+        BEHRINGER_MANUFACTURER, NEUTRON_DEVICE, SYSEX_EOX, SYSEX_MESSAGE_START,
     };
 
     #[test]
@@ -391,6 +408,19 @@ mod test {
         assert_eq!(
             global_setting(to_vec(LfoShapeOrder(LfoIndex::Two, LfoShape::RisingSaw)).as_slice()),
             Ok((&[][..], LfoShapeOrder(LfoIndex::Two, LfoShape::RisingSaw)))
+        );
+        assert_eq!(
+            global_setting(
+                to_vec(LfoShapePhase(
+                    LfoIndex::Three,
+                    LfoPhaseOffset::HundredThirtyFive
+                ))
+                .as_slice()
+            ),
+            Ok((
+                &[][..],
+                LfoShapePhase(LfoIndex::Three, LfoPhaseOffset::HundredThirtyFive)
+            ))
         );
         assert_eq!(
             global_setting(to_vec(LfoResetOrder).as_slice()),

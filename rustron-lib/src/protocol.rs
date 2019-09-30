@@ -261,6 +261,34 @@ impl LfoShape {
     }
 }
 
+/// Lfo phase offset in degrees
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LfoPhaseOffset {
+    Zero,
+    FourtyFive,
+    Ninety,
+    HundredThirtyFive,
+    HundredEighty,
+    TwoHundredTwentyFive,
+    TwoHundredSeventy,
+    ThreeHundredFifteen,
+}
+
+impl LfoPhaseOffset {
+    pub fn as_byte(&self) -> u8 {
+        match self {
+            LfoPhaseOffset::Zero => 0x00,
+            LfoPhaseOffset::FourtyFive => 0x01,
+            LfoPhaseOffset::Ninety => 0x02,
+            LfoPhaseOffset::HundredThirtyFive => 0x03,
+            LfoPhaseOffset::HundredEighty => 0x04,
+            LfoPhaseOffset::TwoHundredTwentyFive => 0x05,
+            LfoPhaseOffset::TwoHundredSeventy => 0x06,
+            LfoPhaseOffset::ThreeHundredFifteen => 0x07,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GlobalSetting {
     ParaphonicMode(ToggleOption),
@@ -281,6 +309,7 @@ pub enum GlobalSetting {
     LfoMidiSync(ToggleOption),
     LfoDepth(Percent),
     LfoShapeOrder(LfoIndex, LfoShape),
+    LfoShapePhase(LfoIndex, LfoPhaseOffset),
     LfoResetOrder,
     VcfKeyTracking(ToggleOption),
     VcfModDepth(Percent),
@@ -398,6 +427,11 @@ impl ByteBuilder for GlobalSetting {
             GlobalSetting::Osc2Autoglide(s) => {
                 buffer.push(0x25);
                 buffer.push(s.as_byte());
+            }
+            GlobalSetting::LfoShapePhase(i, o) => {
+                buffer.push(0x3a);
+                buffer.push(i.as_byte());
+                buffer.push(o.as_byte());
             }
         }
     }
@@ -552,25 +586,6 @@ pub fn lfo_key_tracking() -> Vec<u8> {
     // ...
     // 0x6c = C7
     wrap_message(vec![0x32, 0x00])
-}
-
-pub fn lfo_phase_offset() -> Vec<u8> {
-    // TODO param
-    // For some reason the app sends updates for all shapes when one shape is saved
-    // Positions: 0x00 - 0x04
-    // Offsets:
-    // 0x00 = 0°
-    // 0x01 = 45°
-    // 0x02 = 90°
-    // 0x03 = 135°
-    // 0x04 = 180°
-    // 0x05 = 225°
-    // 0x06 = 270°
-    // 0x07 = 315°
-    wrap_message(vec![
-        0x38, 0x00, // Position
-        0x00, // Offset
-    ])
 }
 
 pub fn vcf_mod_source() -> Vec<u8> {
