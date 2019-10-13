@@ -31,32 +31,66 @@ mod events;
 mod midi;
 
 #[derive(Default)]
-pub struct State {
+pub struct NeutronState {
+    // TODO
     paraphonic_mode: bool,
     osc_sync: bool,
 }
 
-impl State {
-    pub fn new() -> State {
+impl NeutronState {
+    pub fn new() -> NeutronState {
         Default::default()
+    }
+}
+
+pub struct ListState<T> {
+    items: Vec<T>,
+    selection: usize,
+}
+
+impl<T> ListState<T> {
+    fn new(items: Vec<T>) -> ListState<T> {
+        ListState {
+            items,
+            selection: 0,
+        }
+    }
+
+    fn select_next(&mut self) {
+        self.selection = (self.selection + 1) % self.items.len();
+    }
+
+    fn select_previous(&mut self) {
+        if self.selection == 0 {
+            self.selection = self.items.len() - 1;
+        } else {
+            self.selection -= 1
+        }
     }
 }
 
 pub struct App {
     connection: midi::MidiConnection,
-    state: State,
+    neutron_state: NeutronState,
     command_history: Vec<String>,
     // TODO will grow indefinitely, does it matter?
     midi_in_messages: Vec<Vec<u8>>,
+    basic_menu: ListState<String>,
 }
 
 impl App {
-    pub fn new(state: State) -> Result<App, failure::Error> {
+    pub fn new(state: NeutronState) -> Result<App, failure::Error> {
         Ok(App {
             connection: midi::MidiConnection::new().into(),
-            state,
+            neutron_state: state,
             command_history: Vec::new().into(),
             midi_in_messages: Vec::new().into(),
+            basic_menu: ListState::new(
+                MENU_MAPPINGS
+                    .iter()
+                    .map(|(name, _)| name.to_string())
+                    .collect(),
+            ),
         })
     }
 
@@ -138,20 +172,25 @@ where
         .render(frame, rectangle);
 }
 
-fn render_options_menu<B>(
-    frame: &mut Frame<B>,
-    rectangle: Rect,
-    menu_items: &Vec<String>,
-    menu_selection: usize,
-) where
+fn render_options_menu<B>(frame: &mut Frame<B>, rectangle: Rect, app: &App)
+where
     B: Backend,
 {
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .split(rectangle);
+
+    // Old menu
     SelectableList::default()
         .block(Block::default())
-        .items(&menu_items)
-        .select(Some(menu_selection))
+        .items(&app.basic_menu.items)
+        .select(Some(app.basic_menu.selection))
         .highlight_symbol(">>")
-        .render(frame, rectangle);
+        .render(frame, chunks[0]);
+
+    // Prototype new menu
+    //TODO
 }
 
 fn render_midi_stream<B>(frame: &mut Frame<B>, rectangle: Rect, app: &App)
@@ -183,19 +222,12 @@ fn main() -> Result<(), failure::Error> {
     let key_events = Events::new();
 
     let (midi_in_sender, midi_in_receiver) = mpsc::channel();
-    let state = State::new();
+    let state = NeutronState::new();
 
     let app = &mut App::new(state)?;
     if let Err(error) = app.connection.register_midi_in_channel(midi_in_sender) {
         app.command_history.push(format!("{}", error))
     };
-
-    // let menu_items = ["Hello world!", "Foo Bar"];
-    let menu_items: Vec<String> = MENU_MAPPINGS
-        .iter()
-        .map(|(name, _)| name.to_string())
-        .collect();
-    let mut menu_selection: usize = 0;
 
     loop {
         match midi_in_receiver.try_recv() {
@@ -222,7 +254,7 @@ fn main() -> Result<(), failure::Error> {
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
                     .split(vertical_split[0]);
 
-                render_options_menu(&mut frame, chunks[0], &menu_items, menu_selection);
+                render_options_menu(&mut frame, chunks[0], app);
                 render_command_history(&mut frame, chunks[1], app);
             }
 
@@ -256,19 +288,15 @@ fn main() -> Result<(), failure::Error> {
 
                 // Menu stuff
                 Key::Char('\n') => app.command(
-                    SetGlobalSetting(Multicast, MENU_MAPPINGS[menu_selection].1)
+                    SetGlobalSetting(Multicast, MENU_MAPPINGS[app.basic_menu.selection].1)
                         .as_bytes()
                         .as_slice(),
                 ),
                 Key::Down => {
-                    menu_selection = (menu_selection + 1) % menu_items.len();
+                    app.basic_menu.select_next();
                 }
                 Key::Up => {
-                    if menu_selection == 0 {
-                        menu_selection = menu_items.len() - 1;
-                    } else {
-                        menu_selection = menu_selection - 1;
-                    }
+                    app.basic_menu.select_previous();
                 }
                 _ => {}
             },
