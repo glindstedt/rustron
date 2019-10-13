@@ -111,18 +111,22 @@ pub const MENU_MAPPINGS: [(&str, GlobalSetting); 35] = [
     ("VCF key tracking Off", VcfKeyTracking(Off)),
 ];
 
+// Used for primitive scrolling logic
+fn bottom_slice<T>(array: &[T], max_size: usize) -> &[T] {
+    let array_size = array.len();
+    let start_index = if array_size < max_size {
+        0
+    } else {
+        array_size - max_size
+    };
+    &array[start_index..]
+}
+
 fn render_command_history<B>(frame: &mut Frame<B>, rectangle: Rect, app: &App)
 where
     B: Backend,
 {
-    let buffer_height = rectangle.height;
-    let message_count = app.command_history.len();
-    let start_index = if message_count < buffer_height as usize {
-        0
-    } else {
-        message_count - buffer_height as usize
-    };
-    let command_history = app.command_history[start_index..]
+    let command_history = bottom_slice(app.command_history.as_slice(), rectangle.height as usize)
         .iter()
         .map(|event| Text::raw(event.to_string()));
     List::new(command_history)
@@ -154,20 +158,11 @@ fn render_midi_stream<B>(frame: &mut Frame<B>, rectangle: Rect, app: &App)
 where
     B: Backend,
 {
-    // Primitive scrolling logic
-    let buffer_height = rectangle.height;
-    let message_count = app.midi_in_messages.len();
-    let start_index = if message_count < buffer_height as usize {
-        0
-    } else {
-        message_count - buffer_height as usize
-    };
-    let midi_messages =
-        app.midi_in_messages[start_index..].iter().map(|event| {
-            match neutron_message(event.as_slice()) {
-                Ok((_, msg)) => Text::raw(msg.to_string()),
-                Err(_) => Text::raw(hex::encode(event)),
-            }
+    let midi_messages = bottom_slice(app.midi_in_messages.as_slice(), rectangle.height as usize)
+        .iter()
+        .map(|event| match neutron_message(event.as_slice()) {
+            Ok((_, msg)) => Text::raw(msg.to_string()),
+            Err(_) => Text::raw(hex::encode(event)),
         });
     List::new(midi_messages)
         .block(
