@@ -3,12 +3,11 @@ use std::sync::mpsc;
 
 use termion::event::Key;
 use termion::raw::IntoRawMode;
-use tui::backend::TermionBackend;
-use tui::layout::{Constraint, Direction, Layout};
+use tui::backend::{Backend, TermionBackend};
+use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::widgets::{Block, Borders, List, SelectableList, Text, Widget};
-use tui::Terminal;
+use tui::{Frame, Terminal};
 
-use crate::events::{Event, Events};
 use rustron_lib::parser::neutron_message;
 use rustron_lib::protocol;
 use rustron_lib::protocol::{
@@ -26,23 +25,20 @@ use rustron_lib::protocol::{
     ToggleOption::{Off, On},
 };
 
+use crate::events::{Event, Events};
+
 mod events;
 mod midi;
 
+#[derive(Default)]
 pub struct State {
-    // TODO will grow indefinitely, does it matter?
-    midi_in_messages: Vec<Vec<u8>>,
+    paraphonic_mode: bool,
+    osc_sync: bool,
 }
 
 impl State {
     pub fn new() -> State {
-        State {
-            midi_in_messages: Vec::new().into(),
-        }
-    }
-
-    pub fn push(&mut self, packet: Vec<u8>) {
-        self.midi_in_messages.push(packet);
+        Default::default()
     }
 }
 
@@ -50,6 +46,8 @@ pub struct App {
     connection: midi::MidiConnection,
     state: State,
     command_history: Vec<String>,
+    // TODO will grow indefinitely, does it matter?
+    midi_in_messages: Vec<Vec<u8>>,
 }
 
 impl App {
@@ -58,6 +56,7 @@ impl App {
             connection: midi::MidiConnection::new().into(),
             state,
             command_history: Vec::new().into(),
+            midi_in_messages: Vec::new().into(),
         })
     }
 
@@ -112,6 +111,73 @@ pub const MENU_MAPPINGS: [(&str, GlobalSetting); 35] = [
     ("VCF key tracking Off", VcfKeyTracking(Off)),
 ];
 
+fn render_command_history<B>(frame: &mut Frame<B>, rectangle: Rect, app: &App)
+where
+    B: Backend,
+{
+    let buffer_height = rectangle.height;
+    let message_count = app.command_history.len();
+    let start_index = if message_count < buffer_height as usize {
+        0
+    } else {
+        message_count - buffer_height as usize
+    };
+    let command_history = app.command_history[start_index..]
+        .iter()
+        .map(|event| Text::raw(event.to_string()));
+    List::new(command_history)
+        .block(
+            Block::default()
+                .title("Command History")
+                .borders(Borders::ALL),
+        )
+        .render(frame, rectangle);
+}
+
+fn render_options_menu<B>(
+    frame: &mut Frame<B>,
+    rectangle: Rect,
+    menu_items: &Vec<String>,
+    menu_selection: usize,
+) where
+    B: Backend,
+{
+    SelectableList::default()
+        .block(Block::default())
+        .items(&menu_items)
+        .select(Some(menu_selection))
+        .highlight_symbol(">>")
+        .render(frame, rectangle);
+}
+
+fn render_midi_stream<B>(frame: &mut Frame<B>, rectangle: Rect, app: &App)
+where
+    B: Backend,
+{
+    // Primitive scrolling logic
+    let buffer_height = rectangle.height;
+    let message_count = app.midi_in_messages.len();
+    let start_index = if message_count < buffer_height as usize {
+        0
+    } else {
+        message_count - buffer_height as usize
+    };
+    let midi_messages =
+        app.midi_in_messages[start_index..].iter().map(|event| {
+            match neutron_message(event.as_slice()) {
+                Ok((_, msg)) => Text::raw(msg.to_string()),
+                Err(_) => Text::raw(hex::encode(event)),
+            }
+        });
+    List::new(midi_messages)
+        .block(
+            Block::default()
+                .title("MIDI Sysex Input")
+                .borders(Borders::ALL),
+        )
+        .render(frame, rectangle);
+}
+
 fn main() -> Result<(), failure::Error> {
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
@@ -138,12 +204,12 @@ fn main() -> Result<(), failure::Error> {
 
     loop {
         match midi_in_receiver.try_recv() {
-            Ok(msg) => app.state.push(msg.into()),
+            Ok(msg) => app.midi_in_messages.push(msg.into()),
             Err(_) => {}
         }
         terminal.draw(|mut frame| {
             let size = frame.size();
-            let chunks = Layout::default()
+            let vertical_split = Layout::default()
                 .direction(Direction::Horizontal)
                 .margin(1)
                 .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
@@ -159,55 +225,13 @@ fn main() -> Result<(), failure::Error> {
                     .direction(Direction::Vertical)
                     .margin(1)
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-                    .split(chunks[0]);
+                    .split(vertical_split[0]);
 
-                SelectableList::default()
-                    .block(Block::default())
-                    .items(&menu_items)
-                    .select(Some(menu_selection))
-                    .highlight_symbol(">>")
-                    .render(&mut frame, chunks[0]);
-
-                let buffer_height = chunks[1].height;
-                let message_count = app.command_history.len();
-                let start_index = if message_count < buffer_height as usize {
-                    0
-                } else {
-                    message_count - buffer_height as usize
-                };
-                let command_history = app.command_history[start_index..]
-                    .iter()
-                    .map(|event| Text::raw(event.to_string()));
-                List::new(command_history)
-                    .block(
-                        Block::default()
-                            .title("Command History")
-                            .borders(Borders::ALL),
-                    )
-                    .render(&mut frame, chunks[1]);
+                render_options_menu(&mut frame, chunks[0], &menu_items, menu_selection);
+                render_command_history(&mut frame, chunks[1], app);
             }
 
-            // Primitive scrolling logic
-            let buffer_height = chunks[1].height;
-            let message_count = app.state.midi_in_messages.len();
-            let start_index = if message_count < buffer_height as usize {
-                0
-            } else {
-                message_count - buffer_height as usize
-            };
-            let midi_messages = app.state.midi_in_messages[start_index..]
-                .iter()
-                .map(|event| match neutron_message(event.as_slice()) {
-                    Ok((_, msg)) => Text::raw(msg.to_string()),
-                    Err(_) => Text::raw(hex::encode(event)),
-                });
-            List::new(midi_messages)
-                .block(
-                    Block::default()
-                        .title("MIDI Sysex Input")
-                        .borders(Borders::ALL),
-                )
-                .render(&mut frame, chunks[1]);
+            render_midi_stream(&mut frame, vertical_split[1], app);
         })?;
 
         match key_events.next()? {
