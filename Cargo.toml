@@ -10,7 +10,6 @@ edition = "2018"
 
 [dependencies]
 rustron-lib = { path = "rustron-lib" }
-failure = "0.1.5"
 hex = "0.3.2"
 midir = "0.5.0"
 tui = "0.6.2"

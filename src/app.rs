@@ -17,7 +17,7 @@ use rustron_lib::protocol::{
     ToggleOption::{Off, On},
 };
 
-use crate::events::{Event, Events};
+use crate::events::Event;
 use crate::midi;
 
 #[derive(Default)]
@@ -70,8 +70,8 @@ pub struct App {
 }
 
 impl App {
-    pub fn new() -> Result<App, failure::Error> {
-        Ok(App {
+    pub fn new() -> App {
+        App {
             connection: midi::MidiConnection::new().into(),
             neutron_state: NeutronState::new(),
             command_history: Vec::new().into(),
@@ -83,7 +83,7 @@ impl App {
                     .collect(),
             ),
             should_quit: false,
-        })
+        }
     }
 
     pub fn command(&mut self, message: &[u8]) {

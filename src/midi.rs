@@ -1,6 +1,9 @@
+use std::error;
 use std::sync::mpsc::Sender;
 
-use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, PortInfoError};
+use midir::{
+    MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, PortInfoError, SendError,
+};
 
 pub struct MidiConnection {
     // TODO what about closing connections?
@@ -16,53 +19,45 @@ impl MidiConnection {
         }
     }
 
-    fn connect_midi_out(&mut self) -> Result<(), failure::Error> {
+    fn connect_midi_out(&mut self) -> Result<(), Box<dyn error::Error>> {
         let output = MidiOutput::new("Neutron").unwrap();
         let out_port = get_neutron_port(&output);
-        return match out_port {
-            Ok(port_number) => {
-                self.midi_out = output.connect(port_number, "neutron").ok();
-                Ok(())
-            }
-            Err(error) => Err(error),
-        };
+        return out_port.and_then(|port_number| {
+            self.midi_out = output.connect(port_number, "neutron").ok();
+            Ok(())
+        });
     }
 
     pub fn register_midi_in_channel(
         &mut self,
         message_sender_channel: Sender<Vec<u8>>,
-    ) -> Result<(), failure::Error> {
+    ) -> Result<(), Box<dyn error::Error>> {
         let input = MidiInput::new("Neutron").unwrap();
         let in_port = get_neutron_port(&input);
 
-        return match in_port {
-            Ok(port_number) => {
-                self.midi_in = input
-                    .connect(
-                        port_number,
-                        "neutron",
-                        move |_, msg, _| {
-                            message_sender_channel.send(msg.to_vec());
-                        },
-                        (),
-                    )
-                    .map_err(|e| failure::err_msg(e.to_string()))
-                    .ok();
-                Ok(())
-            }
-            Err(error) => Err(error),
-        };
+        return in_port.and_then(|port_number| {
+            self.midi_in = input
+                .connect(
+                    port_number,
+                    "neutron",
+                    move |_, msg, _| {
+                        // TODO panic on Err for now
+                        message_sender_channel.send(msg.to_vec()).unwrap();
+                    },
+                    (),
+                )
+                .ok();
+            Ok(())
+        });
     }
 
-    pub fn send_message(&mut self, message: &[u8]) -> Result<(), failure::Error> {
+    pub fn send_message(&mut self, message: &[u8]) -> Result<(), SendError> {
         if self.midi_out.is_none() {
             self.connect_midi_out();
         }
         match &mut self.midi_out {
-            Some(out) => out
-                .send(message)
-                .map_err(|e| failure::err_msg(e.to_string())),
-            None => Err(failure::err_msg("No connection established.")),
+            Some(out) => out.send(message),
+            None => Err(SendError::Other("No connection established.")),
         }
     }
 }
@@ -92,7 +87,7 @@ impl Neutron for MidiInput {
     }
 }
 
-fn get_neutron_port(midi_output: &dyn Neutron) -> Result<usize, failure::Error> {
+fn get_neutron_port(midi_output: &dyn Neutron) -> Result<usize, Box<dyn error::Error>> {
     let mut out_port: Option<usize> = None;
     for i in 0..midi_output.port_count() {
         match midi_output.port_name(i).unwrap().starts_with("Neutron") {
@@ -105,6 +100,6 @@ fn get_neutron_port(midi_output: &dyn Neutron) -> Result<usize, failure::Error> 
     }
     match out_port {
         Some(i) => Ok(i),
-        None => Err(failure::err_msg("Could not find Neutron.")),
+        None => Err(Box::from("Could not find Neutron.")),
     }
 }

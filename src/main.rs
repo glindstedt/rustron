@@ -1,5 +1,5 @@
-use std::io;
 use std::sync::mpsc;
+use std::{error, io};
 
 use termion::raw::IntoRawMode;
 use tui::backend::{Backend, TermionBackend};
@@ -83,7 +83,7 @@ where
         .render(frame, rectangle);
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> Result<(), Box<dyn error::Error>> {
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -94,7 +94,7 @@ fn main() -> Result<(), failure::Error> {
 
     let (midi_in_sender, midi_in_receiver) = mpsc::channel();
 
-    let app = &mut App::new()?;
+    let app = &mut App::new();
     if let Err(error) = app.connection.register_midi_in_channel(midi_in_sender) {
         app.command_history.push(format!("{}", error))
     };
