@@ -76,13 +76,14 @@ pub struct App {
     // TODO will grow indefinitely, does it matter?
     midi_in_messages: Vec<Vec<u8>>,
     basic_menu: ListState<String>,
+    should_quit: bool,
 }
 
 impl App {
-    pub fn new(state: NeutronState) -> Result<App, failure::Error> {
+    pub fn new() -> Result<App, failure::Error> {
         Ok(App {
             connection: midi::MidiConnection::new().into(),
-            neutron_state: state,
+            neutron_state: NeutronState::new(),
             command_history: Vec::new().into(),
             midi_in_messages: Vec::new().into(),
             basic_menu: ListState::new(
@@ -91,6 +92,7 @@ impl App {
                     .map(|(name, _)| name.to_string())
                     .collect(),
             ),
+            should_quit: false,
         })
     }
 
@@ -104,6 +106,50 @@ impl App {
         if let Err(error) = self.connection.send_message(message) {
             self.command_history.push(format!("{}", error))
         };
+    }
+
+    pub fn handle_event(&mut self, event: Event<Key>) {
+        match event {
+            Event::Input(key) => match key {
+                Key::Char('q') => self.should_quit = true,
+                Key::Char('s') => self.command(protocol::maybe_request_state().as_slice()),
+                Key::Char('P') => self.command(
+                    SetGlobalSetting(Multicast, ParaphonicMode(On))
+                        .as_bytes()
+                        .as_slice(),
+                ),
+                Key::Char('p') => self.command(
+                    SetGlobalSetting(Multicast, ParaphonicMode(Off))
+                        .as_bytes()
+                        .as_slice(),
+                ),
+                Key::Char('Y') => self.command(
+                    SetGlobalSetting(Multicast, OscSync(On))
+                        .as_bytes()
+                        .as_slice(),
+                ),
+                Key::Char('y') => self.command(
+                    SetGlobalSetting(Multicast, OscSync(Off))
+                        .as_bytes()
+                        .as_slice(),
+                ),
+
+                // Menu stuff
+                Key::Char('\n') => self.command(
+                    SetGlobalSetting(Multicast, MENU_MAPPINGS[self.basic_menu.selection].1)
+                        .as_bytes()
+                        .as_slice(),
+                ),
+                Key::Down => {
+                    self.basic_menu.select_next();
+                }
+                Key::Up => {
+                    self.basic_menu.select_previous();
+                }
+                _ => {}
+            },
+            _ => {}
+        }
     }
 }
 
@@ -222,14 +268,13 @@ fn main() -> Result<(), failure::Error> {
     let key_events = Events::new();
 
     let (midi_in_sender, midi_in_receiver) = mpsc::channel();
-    let state = NeutronState::new();
 
-    let app = &mut App::new(state)?;
+    let app = &mut App::new()?;
     if let Err(error) = app.connection.register_midi_in_channel(midi_in_sender) {
         app.command_history.push(format!("{}", error))
     };
 
-    loop {
+    while !app.should_quit {
         match midi_in_receiver.try_recv() {
             Ok(msg) => app.midi_in_messages.push(msg.into()),
             Err(_) => {}
@@ -261,47 +306,7 @@ fn main() -> Result<(), failure::Error> {
             render_midi_stream(&mut frame, vertical_split[1], app);
         })?;
 
-        match key_events.next()? {
-            Event::Input(key) => match key {
-                Key::Char('q') => break,
-                Key::Char('s') => app.command(protocol::maybe_request_state().as_slice()),
-                Key::Char('P') => app.command(
-                    SetGlobalSetting(Multicast, ParaphonicMode(On))
-                        .as_bytes()
-                        .as_slice(),
-                ),
-                Key::Char('p') => app.command(
-                    SetGlobalSetting(Multicast, ParaphonicMode(Off))
-                        .as_bytes()
-                        .as_slice(),
-                ),
-                Key::Char('Y') => app.command(
-                    SetGlobalSetting(Multicast, OscSync(On))
-                        .as_bytes()
-                        .as_slice(),
-                ),
-                Key::Char('y') => app.command(
-                    SetGlobalSetting(Multicast, OscSync(Off))
-                        .as_bytes()
-                        .as_slice(),
-                ),
-
-                // Menu stuff
-                Key::Char('\n') => app.command(
-                    SetGlobalSetting(Multicast, MENU_MAPPINGS[app.basic_menu.selection].1)
-                        .as_bytes()
-                        .as_slice(),
-                ),
-                Key::Down => {
-                    app.basic_menu.select_next();
-                }
-                Key::Up => {
-                    app.basic_menu.select_previous();
-                }
-                _ => {}
-            },
-            _ => {}
-        }
+        app.handle_event(key_events.next()?);
     }
     Ok(())
 }
