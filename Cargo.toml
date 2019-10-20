@@ -10,7 +10,9 @@ edition = "2018"
 
 [dependencies]
 rustron-lib = { path = "rustron-lib" }
+flexi_logger = "0.14.4"
 hex = "0.4.0"
+log = "0.4.8"
 midir = "0.5.0"
 tui = "0.6.2"
 termion = "1.5"

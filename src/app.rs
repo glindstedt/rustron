@@ -1,3 +1,4 @@
+use log::{info, LevelFilter, Record};
 use termion::event::Key;
 
 use rustron_lib::parser::neutron_message;
@@ -19,6 +20,10 @@ use rustron_lib::protocol::{
 
 use crate::events::Event;
 use crate::midi;
+use flexi_logger::DeferredNow;
+use std::io;
+use std::sync::mpsc;
+use std::sync::mpsc::Receiver;
 
 mod state {
     use rustron_lib::protocol::GlobalSetting;
@@ -122,6 +127,28 @@ mod state {
         }
     }
 
+    pub struct TabsState<'a> {
+        pub titles: Vec<&'a str>,
+        pub index: usize,
+    }
+
+    impl<'a> TabsState<'a> {
+        pub fn new(titles: Vec<&'a str>) -> TabsState {
+            TabsState { titles, index: 0 }
+        }
+        pub fn next(&mut self) {
+            self.index = (self.index + 1) % self.titles.len();
+        }
+
+        pub fn previous(&mut self) {
+            if self.index > 0 {
+                self.index -= 1;
+            } else {
+                self.index = self.titles.len() - 1;
+            }
+        }
+    }
+
     #[cfg(test)]
     mod test {
         use crate::app::state::NeutronState;
@@ -143,19 +170,68 @@ mod state {
     }
 }
 
+struct ApplicationLogger {
+    level: LevelFilter,
+    sender: mpsc::SyncSender<String>,
+}
+
+impl ApplicationLogger {
+    fn new(sender: mpsc::SyncSender<String>) -> Self {
+        ApplicationLogger {
+            level: LevelFilter::Trace,
+            sender,
+        }
+    }
+}
+
+impl flexi_logger::writers::LogWriter for ApplicationLogger {
+    fn write(&self, _now: &mut DeferredNow, record: &Record) -> io::Result<()> {
+        self.sender
+            .send(format!(
+                "{}:{} -- {}",
+                record.level(),
+                record.target(),
+                record.args()
+            ))
+            .unwrap();
+        Ok(())
+    }
+
+    fn flush(&self) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn max_log_level(&self) -> LevelFilter {
+        self.level
+    }
+}
+
 pub struct App {
+    pub tabs: state::TabsState<'static>,
     pub connection: midi::MidiConnection,
     pub neutron_state: state::NeutronState,
     pub command_history: Vec<String>,
     // TODO will grow indefinitely, does it matter?
     pub midi_in_messages: Vec<Vec<u8>>,
     pub basic_menu: state::ListState<String>,
+    pub log: Vec<String>,
+    log_receiver: Receiver<String>,
     pub should_quit: bool,
 }
 
 impl App {
     pub fn new() -> App {
+        // Wire up logging
+        let (app_log_sender, app_log_receiver) = mpsc::sync_channel(1000);
+        flexi_logger::Logger::with_env_or_str("info")
+            .log_target(flexi_logger::LogTarget::Writer(Box::new(
+                ApplicationLogger::new(app_log_sender),
+            )))
+            .start()
+            .unwrap();
+
         App {
+            tabs: state::TabsState::new(vec!["app", "logs"]),
             connection: midi::MidiConnection::new(),
             neutron_state: state::NeutronState::new(),
             command_history: Vec::new(),
@@ -166,6 +242,8 @@ impl App {
                     .map(|(name, _)| name.to_string())
                     .collect(),
             ),
+            log: Vec::new(),
+            log_receiver: app_log_receiver,
             should_quit: false,
         }
     }
@@ -183,44 +261,56 @@ impl App {
     }
 
     pub fn handle_event(&mut self, event: Event<Key>) {
-        if let Event::Input(key) = event {
-            match key {
-                Key::Char('q') => self.should_quit = true,
-                Key::Char('s') => self.command(protocol::maybe_request_state().as_slice()),
-                Key::Char('P') => self.command(
-                    SetGlobalSetting(Multicast, ParaphonicMode(On))
-                        .as_bytes()
-                        .as_slice(),
-                ),
-                Key::Char('p') => self.command(
-                    SetGlobalSetting(Multicast, ParaphonicMode(Off))
-                        .as_bytes()
-                        .as_slice(),
-                ),
-                Key::Char('Y') => self.command(
-                    SetGlobalSetting(Multicast, OscSync(On))
-                        .as_bytes()
-                        .as_slice(),
-                ),
-                Key::Char('y') => self.command(
-                    SetGlobalSetting(Multicast, OscSync(Off))
-                        .as_bytes()
-                        .as_slice(),
-                ),
+        match event {
+            Event::Tick => {
+                // Receive logs
+                if let Ok(log_msg) = self.log_receiver.try_recv() {
+                    self.log.push(log_msg)
+                }
+            }
+            Event::Input(key) => {
+                match key {
+                    Key::Char('q') => self.should_quit = true,
+                    Key::Char('s') => self.command(protocol::maybe_request_state().as_slice()),
+                    Key::Char('P') => self.command(
+                        SetGlobalSetting(Multicast, ParaphonicMode(On))
+                            .as_bytes()
+                            .as_slice(),
+                    ),
+                    Key::Char('p') => self.command(
+                        SetGlobalSetting(Multicast, ParaphonicMode(Off))
+                            .as_bytes()
+                            .as_slice(),
+                    ),
+                    Key::Char('Y') => self.command(
+                        SetGlobalSetting(Multicast, OscSync(On))
+                            .as_bytes()
+                            .as_slice(),
+                    ),
+                    Key::Char('y') => self.command(
+                        SetGlobalSetting(Multicast, OscSync(Off))
+                            .as_bytes()
+                            .as_slice(),
+                    ),
 
-                // Menu stuff
-                Key::Char('\n') => self.command(
-                    SetGlobalSetting(Multicast, MENU_MAPPINGS[self.basic_menu.selection].1)
-                        .as_bytes()
-                        .as_slice(),
-                ),
-                Key::Down => {
-                    self.basic_menu.select_next();
+                    // Menu stuff
+                    Key::Char('\n') => self.command(
+                        SetGlobalSetting(Multicast, MENU_MAPPINGS[self.basic_menu.selection].1)
+                            .as_bytes()
+                            .as_slice(),
+                    ),
+                    Key::Char('\t') => {
+                        info!("Switched tabs!");
+                        self.tabs.next()
+                    }
+                    Key::Down => {
+                        self.basic_menu.select_next();
+                    }
+                    Key::Up => {
+                        self.basic_menu.select_previous();
+                    }
+                    _ => {}
                 }
-                Key::Up => {
-                    self.basic_menu.select_previous();
-                }
-                _ => {}
             }
         }
     }

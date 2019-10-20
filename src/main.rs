@@ -4,7 +4,8 @@ use std::{error, io};
 use termion::raw::IntoRawMode;
 use tui::backend::{Backend, TermionBackend};
 use tui::layout::{Constraint, Direction, Layout, Rect};
-use tui::widgets::{Block, Borders, List, SelectableList, Text, Widget};
+use tui::style::{Color, Style};
+use tui::widgets::{Block, Borders, List, SelectableList, Tabs, Text, Widget};
 use tui::{Frame, Terminal};
 
 use rustron_lib::parser::neutron_message;
@@ -105,29 +106,47 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         }
         terminal.draw(|mut frame| {
             let size = frame.size();
-            let vertical_split = Layout::default()
-                .direction(Direction::Horizontal)
-                .margin(1)
-                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-                .split(size);
-            Block::default()
-                .title("Rustron")
-                .borders(Borders::ALL)
+
+            Tabs::default()
+                .block(Block::default().borders(Borders::ALL).title("Rustron"))
+                .titles(&app.tabs.titles)
+                .select(app.tabs.index)
+                .style(Style::default().fg(Color::Cyan))
+                .highlight_style(Style::default().fg(Color::Yellow))
                 .render(&mut frame, size);
 
-            {
-                // Left half
-                let chunks = Layout::default()
-                    .direction(Direction::Vertical)
-                    .margin(1)
-                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-                    .split(vertical_split[0]);
+            match app.tabs.index {
+                0 => {
+                    let vertical_split = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .margin(1)
+                        .constraints(
+                            [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref(),
+                        )
+                        .split(size);
+                    {
+                        // Left half
+                        let chunks = Layout::default()
+                            .direction(Direction::Vertical)
+                            .margin(1)
+                            .constraints(
+                                [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref(),
+                            )
+                            .split(vertical_split[0]);
 
-                render_options_menu(&mut frame, chunks[0], app);
-                render_command_history(&mut frame, chunks[1], app);
+                        render_options_menu(&mut frame, chunks[0], app);
+                        render_command_history(&mut frame, chunks[1], app);
+                    }
+
+                    render_midi_stream(&mut frame, vertical_split[1], app);
+                }
+                1 => {
+                    List::new(app.log.iter().map(|event| Text::raw(event.to_string())))
+                        .block(Block::default().title("Logs").borders(Borders::ALL))
+                        .render(&mut frame, size);
+                }
+                _ => {}
             }
-
-            render_midi_stream(&mut frame, vertical_split[1], app);
         })?;
 
         app.handle_event(key_events.next()?);
