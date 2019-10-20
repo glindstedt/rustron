@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Display};
+
 use strum_macros::EnumIter;
 
 pub const SYSEX_MESSAGE_START: u8 = 0xf0;
@@ -60,6 +61,25 @@ impl ToggleOption {
         match self {
             ToggleOption::On => 0x01,
             ToggleOption::Off => 0x00,
+        }
+    }
+}
+
+impl From<bool> for ToggleOption {
+    fn from(b: bool) -> Self {
+        if b {
+            ToggleOption::On
+        } else {
+            ToggleOption::Off
+        }
+    }
+}
+
+impl Into<bool> for ToggleOption {
+    fn into(self) -> bool {
+        match self {
+            ToggleOption::On => true,
+            ToggleOption::Off => false,
         }
     }
 }

@@ -20,52 +20,136 @@ use rustron_lib::protocol::{
 use crate::events::Event;
 use crate::midi;
 
-#[derive(Default)]
-pub struct NeutronState {
-    // TODO
-    paraphonic_mode: bool,
-    osc_sync: bool,
-}
+mod state {
+    use rustron_lib::protocol::{BlendMode, GlobalSetting, KeyTrackMode, RetriggerMode};
+    use rustron_lib::protocol::{NeutronMessage, ToggleOption};
 
-impl NeutronState {
-    pub fn new() -> NeutronState {
-        Default::default()
+    #[derive(Default)]
+    pub struct GlobalSettingsState {
+        // TODO device_id stuff
+        device_id: u8,
+        paraphonic_mode: bool,
+        osc_sync: bool,
     }
-}
 
-pub struct ListState<T> {
-    pub items: Vec<T>,
-    pub selection: usize,
-}
+    #[derive(Default)]
+    pub struct NeutronState {
+        global_settings: GlobalSettingsState,
+    }
 
-impl<T> ListState<T> {
-    fn new(items: Vec<T>) -> ListState<T> {
-        ListState {
-            items,
-            selection: 0,
+    impl NeutronState {
+        pub fn new() -> NeutronState {
+            // TODO device_id
+            Default::default()
+        }
+
+        fn global_setting_update(&mut self, global_setting: GlobalSetting) {
+            match global_setting {
+                GlobalSetting::ParaphonicMode(t) => self.global_settings.paraphonic_mode = t.into(),
+                GlobalSetting::OscSync(_) => {}
+                GlobalSetting::Osc1BlendMode(_) => {}
+                GlobalSetting::Osc2BlendMode(_) => {}
+                GlobalSetting::Osc1TunePotBypass(_) => {}
+                GlobalSetting::Osc2TunePotBypass(_) => {}
+                GlobalSetting::Osc1Range(_) => {}
+                GlobalSetting::Osc2Range(_) => {}
+                GlobalSetting::Osc2KeyTrack(_) => {}
+                GlobalSetting::Osc1Autoglide(_) => {}
+                GlobalSetting::Osc2Autoglide(_) => {}
+                GlobalSetting::LfoBlendMode(_) => {}
+                GlobalSetting::LfoKeySync(_) => {}
+                GlobalSetting::LfoOneShot(_) => {}
+                GlobalSetting::LfoRetrigger(_) => {}
+                GlobalSetting::LfoMidiSync(_) => {}
+                GlobalSetting::LfoDepth(_) => {}
+                GlobalSetting::LfoShapeOrder(_, _) => {}
+                GlobalSetting::LfoShapePhase(_, _) => {}
+                GlobalSetting::LfoResetOrder => {}
+                GlobalSetting::VcfKeyTracking(_) => {}
+                GlobalSetting::VcfModDepth(_) => {}
+                GlobalSetting::VcfModSource(_) => {}
+                GlobalSetting::MidiChannel(_) => {}
+                GlobalSetting::DisableMidiDips(_) => {}
+                GlobalSetting::PolyChainMode(_) => {}
+                GlobalSetting::KeyRangeMute(_) => {}
+                GlobalSetting::KeyRangeReset => {}
+                GlobalSetting::AssignOut(_) => {}
+                GlobalSetting::EnvRetriggerMode(_) => {}
+            }
+        }
+
+        pub fn update(&mut self, message: NeutronMessage) {
+            match message {
+                NeutronMessage::SetGlobalSetting(_, global_setting) => {
+                    // Messages sent to the Neutron
+                    self.global_setting_update(global_setting)
+                }
+                NeutronMessage::GlobalSettingUpdate(_, global_setting) => {
+                    // Messages sent from the Neutron
+                    self.global_setting_update(global_setting)
+                }
+                NeutronMessage::RestoreGlobalSetting(_) => {}
+                NeutronMessage::CalibrationModeCommand(_) => {}
+                NeutronMessage::SoftwareVersionRequest(_) => {}
+                NeutronMessage::SoftwareVersionResponse(_, _) => {}
+            }
         }
     }
 
-    fn select_next(&mut self) {
-        self.selection = (self.selection + 1) % self.items.len();
+    pub struct ListState<T> {
+        pub items: Vec<T>,
+        pub selection: usize,
     }
 
-    fn select_previous(&mut self) {
-        if self.selection == 0 {
-            self.selection = self.items.len() - 1;
-        } else {
-            self.selection -= 1
+    impl<T> ListState<T> {
+        pub fn new(items: Vec<T>) -> ListState<T> {
+            ListState {
+                items,
+                selection: 0,
+            }
+        }
+
+        pub fn select_next(&mut self) {
+            self.selection = (self.selection + 1) % self.items.len();
+        }
+
+        pub fn select_previous(&mut self) {
+            if self.selection == 0 {
+                self.selection = self.items.len() - 1;
+            } else {
+                self.selection -= 1
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod test {
+        use crate::app::state::NeutronState;
+        use rustron_lib::protocol::Channel::One;
+        use rustron_lib::protocol::DeviceId::Channel;
+        use rustron_lib::protocol::GlobalSetting::ParaphonicMode;
+        use rustron_lib::protocol::NeutronMessage::{GlobalSettingUpdate, SetGlobalSetting};
+        use rustron_lib::protocol::ToggleOption::{Off, On};
+
+        #[test]
+        fn paraphonic_mode_is_updated() {
+            let mut ns = NeutronState::new();
+            assert!(!ns.global_settings.paraphonic_mode);
+            ns.update(SetGlobalSetting(Channel(One), ParaphonicMode(On)));
+            assert!(ns.global_settings.paraphonic_mode);
+            ns.update(GlobalSettingUpdate(Channel(One), ParaphonicMode(Off)));
+            assert!(!ns.global_settings.paraphonic_mode);
         }
     }
 }
 
 pub struct App {
     pub connection: midi::MidiConnection,
-    pub neutron_state: NeutronState,
+    pub neutron_state: state::NeutronState,
     pub command_history: Vec<String>,
     // TODO will grow indefinitely, does it matter?
     pub midi_in_messages: Vec<Vec<u8>>,
-    pub basic_menu: ListState<String>,
+    pub basic_menu: state::ListState<String>,
     pub should_quit: bool,
 }
 
@@ -73,10 +157,10 @@ impl App {
     pub fn new() -> App {
         App {
             connection: midi::MidiConnection::new().into(),
-            neutron_state: NeutronState::new(),
+            neutron_state: state::NeutronState::new(),
             command_history: Vec::new().into(),
             midi_in_messages: Vec::new().into(),
-            basic_menu: ListState::new(
+            basic_menu: state::ListState::new(
                 MENU_MAPPINGS
                     .iter()
                     .map(|(name, _)| name.to_string())
@@ -180,3 +264,15 @@ pub const MENU_MAPPINGS: [(&str, GlobalSetting); 35] = [
     ("VCF key tracking On", VcfKeyTracking(On)),
     ("VCF key tracking Off", VcfKeyTracking(Off)),
 ];
+
+#[cfg(test)]
+mod test {
+
+    use crate::app::App;
+
+    #[test]
+    fn test() {
+        //TODO
+        let app = App::new();
+    }
+}
