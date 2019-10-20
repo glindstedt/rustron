@@ -20,12 +20,16 @@ impl MidiConnection {
     }
 
     fn connect_midi_out(&mut self) -> Result<(), Box<dyn error::Error>> {
-        let output = MidiOutput::new("Neutron").unwrap();
-        let out_port = get_neutron_port(&output);
-        out_port.and_then(|port_number| {
-            self.midi_out = output.connect(port_number, "neutron").ok();
-            Ok(())
-        })
+        match MidiOutput::new("Neutron") {
+            Ok(output) => {
+                let out_port = get_neutron_port(&output);
+                out_port.and_then(|port_number| {
+                    self.midi_out = output.connect(port_number, "neutron").ok();
+                    Ok(())
+                })
+            }
+            Err(error) => Err(Box::new(error)),
+        }
     }
 
     pub fn register_midi_in_channel(
@@ -51,13 +55,15 @@ impl MidiConnection {
         })
     }
 
-    pub fn send_message(&mut self, message: &[u8]) -> Result<(), SendError> {
+    pub fn send_message(&mut self, message: &[u8]) -> Result<(), Box<dyn error::Error>> {
         if self.midi_out.is_none() {
-            self.connect_midi_out();
+            if let Err(error) = self.connect_midi_out() {
+                return Err(error);
+            }
         }
         match &mut self.midi_out {
-            Some(out) => out.send(message),
-            None => Err(SendError::Other("No connection established.")),
+            Some(out) => out.send(message).map_err(|e| Box::new(e).into()),
+            None => Err(Box::new(SendError::Other("No connection established."))),
         }
     }
 }
