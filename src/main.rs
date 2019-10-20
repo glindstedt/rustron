@@ -1,4 +1,3 @@
-use std::sync::mpsc;
 use std::{error, io};
 
 use termion::raw::IntoRawMode;
@@ -99,28 +98,31 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         terminal.draw(|mut frame| {
             let size = frame.size();
 
+            let header_body = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+                .split(size);
+
             Tabs::default()
                 .block(Block::default().borders(Borders::ALL).title("Rustron"))
                 .titles(&app.tabs.titles)
                 .select(app.tabs.index)
                 .style(Style::default().fg(Color::Cyan))
                 .highlight_style(Style::default().fg(Color::Yellow))
-                .render(&mut frame, size);
+                .render(&mut frame, header_body[0]);
 
             match app.tabs.index {
                 0 => {
                     let vertical_split = Layout::default()
                         .direction(Direction::Horizontal)
-                        .margin(1)
                         .constraints(
                             [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref(),
                         )
-                        .split(size);
+                        .split(header_body[1]);
                     {
                         // Left half
                         let chunks = Layout::default()
                             .direction(Direction::Vertical)
-                            .margin(1)
                             .constraints(
                                 [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref(),
                             )
@@ -135,7 +137,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                 1 => {
                     List::new(app.log.iter().map(|event| Text::raw(event.to_string())))
                         .block(Block::default().title("Logs").borders(Borders::ALL))
-                        .render(&mut frame, size);
+                        .render(&mut frame, header_body[1]);
                 }
                 _ => {}
             }

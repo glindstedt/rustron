@@ -311,10 +311,7 @@ impl App {
                             .as_bytes()
                             .as_slice(),
                     ),
-                    Key::Char('\t') => {
-                        info!("Switched tabs!");
-                        self.tabs.next()
-                    }
+                    Key::Char('\t') => self.tabs.next(),
                     Key::Down => {
                         self.basic_menu.select_next();
                     }
