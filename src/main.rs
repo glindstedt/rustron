@@ -93,17 +93,9 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     let key_events = Events::new();
 
-    let (midi_in_sender, midi_in_receiver) = mpsc::channel();
-
     let app = &mut App::new();
-    if let Err(error) = app.connection.register_midi_in_channel(midi_in_sender) {
-        app.command_history.push(format!("{}", error))
-    };
 
     while !app.should_quit {
-        if let Ok(msg) = midi_in_receiver.try_recv() {
-            app.midi_in_messages.push(msg)
-        }
         terminal.draw(|mut frame| {
             let size = frame.size();
 

@@ -1,4 +1,4 @@
-use log::{info, LevelFilter, Record};
+use log::{error, info, warn, LevelFilter, Record};
 use termion::event::Key;
 
 use rustron_lib::parser::neutron_message;
@@ -213,6 +213,7 @@ pub struct App {
     pub command_history: Vec<String>,
     // TODO will grow indefinitely, does it matter?
     pub midi_in_messages: Vec<Vec<u8>>,
+    midi_receiver: Receiver<Vec<u8>>,
     pub basic_menu: state::ListState<String>,
     pub log: Vec<String>,
     log_receiver: Receiver<String>,
@@ -230,12 +231,19 @@ impl App {
             .start()
             .unwrap();
 
+        let (midi_in_sender, midi_in_receiver) = mpsc::channel();
+        let mut midi_connection = midi::MidiConnection::new();
+        if let Err(error) = midi_connection.register_midi_in_channel(midi_in_sender) {
+            warn!("{}", error);
+        };
+
         App {
             tabs: state::TabsState::new(vec!["app", "logs"]),
-            connection: midi::MidiConnection::new(),
+            connection: midi_connection,
             neutron_state: state::NeutronState::new(),
             command_history: Vec::new(),
             midi_in_messages: Vec::new(),
+            midi_receiver: midi_in_receiver,
             basic_menu: state::ListState::new(
                 MENU_MAPPINGS
                     .iter()
@@ -256,13 +264,17 @@ impl App {
             Err(_) => self.command_history.push(hex::encode(message)),
         }
         if let Err(error) = self.connection.send_message(message) {
-            self.command_history.push(format!("{}", error))
+            error!("{}", error);
         };
     }
 
     pub fn handle_event(&mut self, event: Event<Key>) {
         match event {
             Event::Tick => {
+                // Receive midi messages
+                if let Ok(msg) = self.midi_receiver.try_recv() {
+                    self.midi_in_messages.push(msg)
+                }
                 // Receive logs
                 if let Ok(log_msg) = self.log_receiver.try_recv() {
                     self.log.push(log_msg)
