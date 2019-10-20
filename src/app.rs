@@ -21,8 +21,8 @@ use crate::events::Event;
 use crate::midi;
 
 mod state {
-    use rustron_lib::protocol::{BlendMode, GlobalSetting, KeyTrackMode, RetriggerMode};
-    use rustron_lib::protocol::{NeutronMessage, ToggleOption};
+    use rustron_lib::protocol::GlobalSetting;
+    use rustron_lib::protocol::NeutronMessage;
 
     #[derive(Default)]
     pub struct GlobalSettingsState {
@@ -156,10 +156,10 @@ pub struct App {
 impl App {
     pub fn new() -> App {
         App {
-            connection: midi::MidiConnection::new().into(),
+            connection: midi::MidiConnection::new(),
             neutron_state: state::NeutronState::new(),
-            command_history: Vec::new().into(),
-            midi_in_messages: Vec::new().into(),
+            command_history: Vec::new(),
+            midi_in_messages: Vec::new(),
             basic_menu: state::ListState::new(
                 MENU_MAPPINGS
                     .iter()
@@ -183,8 +183,8 @@ impl App {
     }
 
     pub fn handle_event(&mut self, event: Event<Key>) {
-        match event {
-            Event::Input(key) => match key {
+        if let Event::Input(key) = event {
+            match key {
                 Key::Char('q') => self.should_quit = true,
                 Key::Char('s') => self.command(protocol::maybe_request_state().as_slice()),
                 Key::Char('P') => self.command(
@@ -221,8 +221,7 @@ impl App {
                     self.basic_menu.select_previous();
                 }
                 _ => {}
-            },
-            _ => {}
+            }
         }
     }
 }

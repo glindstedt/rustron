@@ -22,10 +22,10 @@ impl MidiConnection {
     fn connect_midi_out(&mut self) -> Result<(), Box<dyn error::Error>> {
         let output = MidiOutput::new("Neutron").unwrap();
         let out_port = get_neutron_port(&output);
-        return out_port.and_then(|port_number| {
+        out_port.and_then(|port_number| {
             self.midi_out = output.connect(port_number, "neutron").ok();
             Ok(())
-        });
+        })
     }
 
     pub fn register_midi_in_channel(
@@ -35,7 +35,7 @@ impl MidiConnection {
         let input = MidiInput::new("Neutron").unwrap();
         let in_port = get_neutron_port(&input);
 
-        return in_port.and_then(|port_number| {
+        in_port.and_then(|port_number| {
             self.midi_in = input
                 .connect(
                     port_number,
@@ -48,7 +48,7 @@ impl MidiConnection {
                 )
                 .ok();
             Ok(())
-        });
+        })
     }
 
     pub fn send_message(&mut self, message: &[u8]) -> Result<(), SendError> {
@@ -90,12 +90,9 @@ impl Neutron for MidiInput {
 fn get_neutron_port(midi_output: &dyn Neutron) -> Result<usize, Box<dyn error::Error>> {
     let mut out_port: Option<usize> = None;
     for i in 0..midi_output.port_count() {
-        match midi_output.port_name(i).unwrap().starts_with("Neutron") {
-            true => {
-                out_port = Some(i);
-                break;
-            }
-            _ => (),
+        if midi_output.port_name(i).unwrap().starts_with("Neutron") {
+            out_port = Some(i);
+            break;
         }
     }
     match out_port {

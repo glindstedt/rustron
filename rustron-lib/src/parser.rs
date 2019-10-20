@@ -14,8 +14,8 @@ use crate::protocol::GlobalSetting::{
     ParaphonicMode, PolyChainMode, VcfKeyTracking, VcfModDepth, VcfModSource,
 };
 use crate::protocol::NeutronMessage::{
-    CalibrationModeCommand, GlobalSettingUpdate, RestoreGlobalSetting, SetGlobalSetting,
-    SoftwareVersionRequest, SoftwareVersionResponse,
+    GlobalSettingUpdate, RestoreGlobalSetting, SetGlobalSetting, SoftwareVersionRequest,
+    SoftwareVersionResponse,
 };
 use crate::protocol::{
     AssignOutOption, AutoglideSemitones, BlendMode, Channel, DeviceId, GlobalSetting, KeyTrackMode,
@@ -157,42 +157,32 @@ fn assign_out_option(input: &[u8]) -> IResult<&[u8], AssignOutOption> {
 fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
     alt((
         alt((
-            map(preceded(tag(&[0x0f]), toggle_option), |t| ParaphonicMode(t)),
-            map(preceded(tag(&[0x0e]), toggle_option), |t| OscSync(t)),
-            map(preceded(tag(&[0x20]), blend_mode), |b| Osc1BlendMode(b)),
-            map(preceded(tag(&[0x21]), blend_mode), |b| Osc2BlendMode(b)),
-            map(preceded(tag(&[0x22]), toggle_option), |t| {
-                Osc1TunePotBypass(t)
-            }),
-            map(preceded(tag(&[0x23]), toggle_option), |t| {
-                Osc2TunePotBypass(t)
-            }),
-            map(preceded(tag(&[0x26]), osc_range), |r| Osc1Range(r)),
-            map(preceded(tag(&[0x27]), osc_range), |r| Osc2Range(r)),
-            map(preceded(tag(&[0x2a]), key_track_mode), |m| Osc2KeyTrack(m)),
-            map(preceded(tag(&[0x30]), blend_mode), |b| LfoBlendMode(b)),
-            map(preceded(tag(&[0x37]), toggle_option), |t| LfoKeySync(t)),
-            map(preceded(tag(&[0x31]), toggle_option), |t| LfoOneShot(t)),
-            map(preceded(tag(&[0x3b]), toggle_option), |t| LfoRetrigger(t)),
-            map(preceded(tag(&[0x35]), toggle_option), |t| LfoMidiSync(t)),
-            map(preceded(tag(&[0x34]), percent), |p| LfoDepth(p)),
+            map(preceded(tag(&[0x0f]), toggle_option), ParaphonicMode),
+            map(preceded(tag(&[0x0e]), toggle_option), OscSync),
+            map(preceded(tag(&[0x20]), blend_mode), Osc1BlendMode),
+            map(preceded(tag(&[0x21]), blend_mode), Osc2BlendMode),
+            map(preceded(tag(&[0x22]), toggle_option), Osc1TunePotBypass),
+            map(preceded(tag(&[0x23]), toggle_option), Osc2TunePotBypass),
+            map(preceded(tag(&[0x26]), osc_range), Osc1Range),
+            map(preceded(tag(&[0x27]), osc_range), Osc2Range),
+            map(preceded(tag(&[0x2a]), key_track_mode), Osc2KeyTrack),
+            map(preceded(tag(&[0x30]), blend_mode), LfoBlendMode),
+            map(preceded(tag(&[0x37]), toggle_option), LfoKeySync),
+            map(preceded(tag(&[0x31]), toggle_option), LfoOneShot),
+            map(preceded(tag(&[0x3b]), toggle_option), LfoRetrigger),
+            map(preceded(tag(&[0x35]), toggle_option), LfoMidiSync),
+            map(preceded(tag(&[0x34]), percent), LfoDepth),
             map(tag(&[0x39, 0x00]), |_| LfoResetOrder),
-            map(preceded(tag(&[0x11]), toggle_option), |t| VcfKeyTracking(t)),
-            map(preceded(tag(&[0x14]), percent), |p| VcfModDepth(p)),
-            map(preceded(tag(&[0x00]), channel), |c| MidiChannel(c)),
-            map(preceded(tag(&[0x0a]), toggle_option), |t| {
-                DisableMidiDips(t)
-            }),
-            map(preceded(tag(&[0x08]), toggle_option), |t| PolyChainMode(t)),
+            map(preceded(tag(&[0x11]), toggle_option), VcfKeyTracking),
+            map(preceded(tag(&[0x14]), percent), VcfModDepth),
+            map(preceded(tag(&[0x00]), channel), MidiChannel),
+            map(preceded(tag(&[0x0a]), toggle_option), DisableMidiDips),
+            map(preceded(tag(&[0x08]), toggle_option), PolyChainMode),
         )),
         alt((
-            map(preceded(tag(&[0x24]), autoglide_semitones), |s| {
-                Osc1Autoglide(s)
-            }),
-            map(preceded(tag(&[0x25]), autoglide_semitones), |s| {
-                Osc2Autoglide(s)
-            }),
-            map(preceded(tag(&[0x0b]), toggle_option), |t| KeyRangeMute(t)),
+            map(preceded(tag(&[0x24]), autoglide_semitones), Osc1Autoglide),
+            map(preceded(tag(&[0x25]), autoglide_semitones), Osc2Autoglide),
+            map(preceded(tag(&[0x0b]), toggle_option), KeyRangeMute),
             map(tag(&[0x06, 0x00]), |_| KeyRangeReset),
             map(
                 preceded(tag(&[0x38]), pair(lfo_index, lfo_shape)),
@@ -202,11 +192,9 @@ fn global_setting(input: &[u8]) -> IResult<&[u8], GlobalSetting> {
                 preceded(tag(&[0x3a]), pair(lfo_index, lfo_phase_offset)),
                 |(i, o)| LfoShapePhase(i, o),
             ),
-            map(preceded(tag(&[0x12]), mod_source), |m| VcfModSource(m)),
-            map(preceded(tag(&[0x04]), assign_out_option), |o| AssignOut(o)),
-            map(preceded(tag(&[0x05]), retrigger_mode), |m| {
-                EnvRetriggerMode(m)
-            }),
+            map(preceded(tag(&[0x12]), mod_source), VcfModSource),
+            map(preceded(tag(&[0x04]), assign_out_option), AssignOut),
+            map(preceded(tag(&[0x05]), retrigger_mode), EnvRetriggerMode),
         )),
     ))(input)
 }
@@ -235,7 +223,7 @@ fn channel(input: &[u8]) -> IResult<&[u8], Channel> {
 fn device_id(input: &[u8]) -> IResult<&[u8], DeviceId> {
     alt((
         map(tag(&[0x7f]), |_| DeviceId::Multicast),
-        map(channel, |c| DeviceId::Channel(c)),
+        map(channel, DeviceId::Channel),
     ))(input)
 }
 
@@ -292,8 +280,8 @@ mod test {
     };
     use crate::protocol::KeyTrackMode::Track;
     use crate::protocol::NeutronMessage::{
-        CalibrationModeCommand, GlobalSettingUpdate, RestoreGlobalSetting, SetGlobalSetting,
-        SoftwareVersionRequest, SoftwareVersionResponse,
+        GlobalSettingUpdate, RestoreGlobalSetting, SetGlobalSetting, SoftwareVersionRequest,
+        SoftwareVersionResponse,
     };
     use crate::protocol::OscRange::{PlusMinusTen, ThirtyTwo};
     use crate::protocol::ToggleOption::{Off, On};

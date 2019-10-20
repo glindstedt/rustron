@@ -57,7 +57,7 @@ pub enum ToggleOption {
 }
 
 impl ToggleOption {
-    pub fn as_byte(&self) -> u8 {
+    pub fn as_byte(self) -> u8 {
         match self {
             ToggleOption::On => 0x01,
             ToggleOption::Off => 0x00,
@@ -108,23 +108,23 @@ pub struct Percent {
 
 impl Percent {
     pub fn from_byte(value: u8) -> Self {
-        return Percent {
+        Percent {
             value: value.min(63),
-        };
+        }
     }
 
     pub fn from_percentage(value: u8) -> Self {
-        return Percent {
+        Percent {
             value: ((value.min(100) as f32 / 100f32) * 63f32) as u8,
-        };
+        }
     }
 
-    pub fn as_byte(&self) -> u8 {
-        return self.value;
+    pub fn as_byte(self) -> u8 {
+        self.value
     }
 
-    pub fn as_percentage(&self) -> f32 {
-        return self.value as f32 / 63f32 * 100f32;
+    pub fn as_percentage(self) -> f32 {
+        self.value as f32 / 63f32 * 100f32
     }
 }
 
@@ -158,7 +158,7 @@ pub enum AutoglideSemitones {
 }
 
 impl AutoglideSemitones {
-    pub fn as_byte(&self) -> u8 {
+    pub fn as_byte(self) -> u8 {
         match self {
             AutoglideSemitones::MinusTwelve => 0x00,
             AutoglideSemitones::MinusEleven => 0x01,
@@ -196,7 +196,7 @@ pub enum BlendMode {
 }
 
 impl BlendMode {
-    pub fn as_byte(&self) -> u8 {
+    pub fn as_byte(self) -> u8 {
         match self {
             BlendMode::Switch => 0x01,
             BlendMode::Blend => 0x00,
@@ -215,7 +215,7 @@ pub enum OscRange {
 }
 
 impl OscRange {
-    pub fn as_byte(&self) -> u8 {
+    pub fn as_byte(self) -> u8 {
         match self {
             OscRange::ThirtyTwo => 0x00,
             OscRange::Sixteen => 0x01,
@@ -232,7 +232,7 @@ pub enum KeyTrackMode {
 }
 
 impl KeyTrackMode {
-    pub fn as_byte(&self) -> u8 {
+    pub fn as_byte(self) -> u8 {
         match self {
             KeyTrackMode::Track => 0x00,
             KeyTrackMode::Hold => 0x01,
@@ -250,7 +250,7 @@ pub enum LfoIndex {
 }
 
 impl LfoIndex {
-    pub fn as_byte(&self) -> u8 {
+    pub fn as_byte(self) -> u8 {
         match self {
             LfoIndex::One => 0x00,
             LfoIndex::Two => 0x01,
@@ -271,7 +271,7 @@ pub enum LfoShape {
 }
 
 impl LfoShape {
-    pub fn as_byte(&self) -> u8 {
+    pub fn as_byte(self) -> u8 {
         match self {
             LfoShape::Sine => 0x00,
             LfoShape::Triangle => 0x01,
@@ -296,7 +296,7 @@ pub enum LfoPhaseOffset {
 }
 
 impl LfoPhaseOffset {
-    pub fn as_byte(&self) -> u8 {
+    pub fn as_byte(self) -> u8 {
         match self {
             LfoPhaseOffset::Zero => 0x00,
             LfoPhaseOffset::FourtyFive => 0x01,
@@ -319,7 +319,7 @@ pub enum ModSource {
 }
 
 impl ModSource {
-    pub fn as_byte(&self) -> u8 {
+    pub fn as_byte(self) -> u8 {
         match self {
             ModSource::Off => 0x00,
             ModSource::AfterTouch => 0x01,
@@ -339,7 +339,7 @@ pub enum AssignOutOption {
 }
 
 impl AssignOutOption {
-    pub fn as_byte(&self) -> u8 {
+    pub fn as_byte(self) -> u8 {
         match self {
             AssignOutOption::Osc1 => 0x00,
             AssignOutOption::Osc2 => 0x01,
@@ -357,7 +357,7 @@ pub enum RetriggerMode {
 }
 
 impl RetriggerMode {
-    pub fn as_byte(&self) -> u8 {
+    pub fn as_byte(self) -> u8 {
         match self {
             RetriggerMode::Staccato => 0x00,
             RetriggerMode::Legato => 0x01,
@@ -549,7 +549,7 @@ pub enum Channel {
 }
 
 impl Channel {
-    fn as_byte(&self) -> u8 {
+    fn as_byte(self) -> u8 {
         match self {
             Channel::One => 0x00,
             Channel::Two => 0x01,
@@ -578,7 +578,7 @@ pub enum DeviceId {
 }
 
 impl DeviceId {
-    fn as_byte(&self) -> u8 {
+    fn as_byte(self) -> u8 {
         match &self {
             DeviceId::Channel(c) => c.as_byte(),
             DeviceId::Multicast => 0x7f,

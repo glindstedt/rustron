@@ -100,9 +100,8 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     };
 
     while !app.should_quit {
-        match midi_in_receiver.try_recv() {
-            Ok(msg) => app.midi_in_messages.push(msg.into()),
-            Err(_) => {}
+        if let Ok(msg) = midi_in_receiver.try_recv() {
+            app.midi_in_messages.push(msg)
         }
         terminal.draw(|mut frame| {
             let size = frame.size();
