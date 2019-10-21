@@ -10,7 +10,6 @@ use tui::{Frame, Terminal};
 use rustron_lib::parser::neutron_message;
 
 use crate::app::App;
-use crate::events::Events;
 
 mod app;
 mod events;
@@ -90,8 +89,6 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     terminal.hide_cursor()?;
     terminal.clear()?;
 
-    let key_events = Events::new();
-
     let app = &mut App::new();
 
     while !app.should_quit {
@@ -143,7 +140,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
             }
         })?;
 
-        app.handle_event(key_events.next()?);
+        app.tick();
     }
     Ok(())
 }

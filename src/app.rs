@@ -18,7 +18,7 @@ use rustron_lib::protocol::{
     ToggleOption::{Off, On},
 };
 
-use crate::events::Event;
+use crate::events;
 use crate::midi;
 use flexi_logger::DeferredNow;
 use std::io;
@@ -218,6 +218,7 @@ pub struct App {
     pub log: Vec<String>,
     log_receiver: Receiver<String>,
     pub should_quit: bool,
+    events: events::Events,
 }
 
 impl App {
@@ -253,6 +254,7 @@ impl App {
             log: Vec::new(),
             log_receiver: app_log_receiver,
             should_quit: false,
+            events: events::Events::new(),
         }
     }
 
@@ -268,9 +270,12 @@ impl App {
         };
     }
 
-    pub fn handle_event(&mut self, event: Event<Key>) {
+    pub fn tick(&mut self) {
+        // Unwrap since mpsc::RecvError should only happen if a channel is disconnected
+        let event = self.events.next().unwrap();
+
         match event {
-            Event::Tick => {
+            events::Event::Tick => {
                 // Receive midi messages
                 if let Ok(msg) = self.midi_receiver.try_recv() {
                     self.midi_in_messages.push(msg)
@@ -280,7 +285,7 @@ impl App {
                     self.log.push(log_msg)
                 }
             }
-            Event::Input(key) => {
+            events::Event::Input(key) => {
                 match key {
                     Key::Char('q') => self.should_quit = true,
                     Key::Char('s') => self.command(protocol::maybe_request_state().as_slice()),
