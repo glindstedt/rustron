@@ -208,16 +208,16 @@ impl flexi_logger::writers::LogWriter for ApplicationLogger {
 
 pub struct App {
     pub tabs: state::TabsState<'static>,
-    pub connection: midi::MidiConnection,
     pub neutron_state: state::NeutronState,
     pub command_history: Vec<String>,
     // TODO will grow indefinitely, does it matter?
     pub midi_in_messages: Vec<Vec<u8>>,
-    midi_receiver: Receiver<Vec<u8>>,
     pub basic_menu: state::ListState<String>,
     pub log: Vec<String>,
-    log_receiver: Receiver<String>,
     pub should_quit: bool,
+    connection: midi::MidiConnection,
+    midi_receiver: Receiver<Vec<u8>>,
+    log_receiver: Receiver<String>,
     events: events::Events,
 }
 
