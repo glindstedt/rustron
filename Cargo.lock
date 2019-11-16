@@ -332,6 +332,16 @@ dependencies = [
  "midir 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustron-lib 0.1.0",
  "termion 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "rustron-cli"
+version = "0.1.0"
+dependencies = [
+ "hex 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustron 0.1.0",
+ "rustron-lib 0.1.0",
+ "termion 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "tui 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 

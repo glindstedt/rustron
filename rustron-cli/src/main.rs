@@ -9,11 +9,7 @@ use tui::{Frame, Terminal};
 
 use rustron_lib::parser::neutron_message;
 
-use crate::app::App;
-
-mod app;
-mod events;
-mod midi;
+use rustron::app::App;
 
 // Used for primitive scrolling logic
 fn bottom_slice<T>(array: &[T], max_size: usize) -> &[T] {
