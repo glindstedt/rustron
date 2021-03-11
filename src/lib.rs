@@ -1,3 +1,3 @@
 pub mod app;
-mod events;
-mod midi;
+pub mod events;
+pub mod midi;

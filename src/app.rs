@@ -20,7 +20,7 @@ use rustron_lib::protocol::{
 
 use crate::events;
 use crate::midi;
-use flexi_logger::DeferredNow;
+use flexi_logger::{DeferredNow, FlexiLoggerError, ReconfigurationHandle};
 use std::io;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
@@ -216,21 +216,33 @@ pub struct App {
     pub log: Vec<String>,
     pub should_quit: bool,
     connection: midi::MidiConnection,
-    midi_receiver: Receiver<Vec<u8>>,
-    log_receiver: Receiver<String>,
-    events: events::Events,
+    pub midi_receiver: Receiver<Vec<u8>>,
+    pub log_receiver: Receiver<String>,
+    pub events: events::Events,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        App::new()
+    }
 }
 
 impl App {
     pub fn new() -> App {
         // Wire up logging
         let (app_log_sender, app_log_receiver) = mpsc::sync_channel(1000);
-        flexi_logger::Logger::with_env_or_str("info")
+        match flexi_logger::Logger::with_env_or_str("info")
             .log_target(flexi_logger::LogTarget::Writer(Box::new(
                 ApplicationLogger::new(app_log_sender),
             )))
-            .start()
-            .unwrap();
+            .start() {
+            Ok(recon_handle) => {
+                info!("Configured logger.")
+            },
+            Err(flexi_error) => {
+                eprintln!("Failed configuring logger: {:?}", flexi_error)
+            },
+        }
 
         let (midi_in_sender, midi_in_receiver) = mpsc::channel();
         let mut midi_connection = midi::MidiConnection::new();
@@ -268,65 +280,6 @@ impl App {
         if let Err(error) = self.connection.send_message(message) {
             error!("{}", error);
         };
-    }
-
-    pub fn tick(&mut self) {
-        // Unwrap since mpsc::RecvError should only happen if a channel is disconnected
-        let event = self.events.next().unwrap();
-
-        match event {
-            events::Event::Tick => {
-                // Receive midi messages
-                if let Ok(msg) = self.midi_receiver.try_recv() {
-                    self.midi_in_messages.push(msg)
-                }
-                // Receive logs
-                if let Ok(log_msg) = self.log_receiver.try_recv() {
-                    self.log.push(log_msg)
-                }
-            }
-            events::Event::Input(key) => {
-                match key {
-                    Key::Char('q') => self.should_quit = true,
-                    Key::Char('s') => self.command(protocol::maybe_request_state().as_slice()),
-                    Key::Char('P') => self.command(
-                        SetGlobalSetting(Multicast, ParaphonicMode(On))
-                            .as_bytes()
-                            .as_slice(),
-                    ),
-                    Key::Char('p') => self.command(
-                        SetGlobalSetting(Multicast, ParaphonicMode(Off))
-                            .as_bytes()
-                            .as_slice(),
-                    ),
-                    Key::Char('Y') => self.command(
-                        SetGlobalSetting(Multicast, OscSync(On))
-                            .as_bytes()
-                            .as_slice(),
-                    ),
-                    Key::Char('y') => self.command(
-                        SetGlobalSetting(Multicast, OscSync(Off))
-                            .as_bytes()
-                            .as_slice(),
-                    ),
-
-                    // Menu stuff
-                    Key::Char('\n') => self.command(
-                        SetGlobalSetting(Multicast, MENU_MAPPINGS[self.basic_menu.selection].1)
-                            .as_bytes()
-                            .as_slice(),
-                    ),
-                    Key::Char('\t') => self.tabs.next(),
-                    Key::Down => {
-                        self.basic_menu.select_next();
-                    }
-                    Key::Up => {
-                        self.basic_menu.select_previous();
-                    }
-                    _ => {}
-                }
-            }
-        }
     }
 }
 

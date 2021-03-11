@@ -7,9 +7,30 @@ use tui::style::{Color, Style};
 use tui::widgets::{Block, Borders, List, SelectableList, Tabs, Text, Widget};
 use tui::{Frame, Terminal};
 
-use rustron_lib::parser::neutron_message;
+use rustron_lib::{
+    parser::neutron_message,
+    protocol,
+    protocol::{
+        BlendMode::{Blend, Switch},
+        DeviceId::Multicast,
+        GlobalSetting,
+        GlobalSetting::{
+            LfoBlendMode, LfoKeySync, LfoMidiSync, LfoOneShot, LfoResetOrder, LfoRetrigger,
+            Osc1BlendMode, Osc1Range, Osc1TunePotBypass, Osc2BlendMode, Osc2KeyTrack, Osc2Range,
+            Osc2TunePotBypass, OscSync, ParaphonicMode, VcfKeyTracking,
+        },
+        KeyTrackMode::{Hold, Track},
+        NeutronMessage::SetGlobalSetting,
+        OscRange::{Eight, PlusMinusTen, Sixteen, ThirtyTwo},
+        ToggleOption::{Off, On},
+    }
+};
 
-use rustron::app::App;
+use rustron::{
+    app::{App, MENU_MAPPINGS},
+    events
+};
+use termion::event::Key;
 
 // Used for primitive scrolling logic
 fn bottom_slice<T>(array: &[T], max_size: usize) -> &[T] {
@@ -78,6 +99,65 @@ where
         .render(frame, rectangle);
 }
 
+fn tick(app: &mut App) {
+    // Unwrap since mpsc::RecvError should only happen if a channel is disconnected
+    let event = app.events.next().unwrap();
+
+    match event {
+        events::Event::Tick => {
+            // Receive midi messages
+            if let Ok(msg) = app.midi_receiver.try_recv() {
+                app.midi_in_messages.push(msg)
+            }
+            // Receive logs
+            if let Ok(log_msg) = app.log_receiver.try_recv() {
+                app.log.push(log_msg)
+            }
+        }
+        events::Event::Input(key) => {
+            match key {
+                Key::Char('q') => app.should_quit = true,
+                Key::Char('s') => app.command(protocol::maybe_request_state().as_slice()),
+                Key::Char('P') => app.command(
+                    SetGlobalSetting(Multicast, ParaphonicMode(On))
+                        .as_bytes()
+                        .as_slice(),
+                ),
+                Key::Char('p') => app.command(
+                    SetGlobalSetting(Multicast, ParaphonicMode(Off))
+                        .as_bytes()
+                        .as_slice(),
+                ),
+                Key::Char('Y') => app.command(
+                    SetGlobalSetting(Multicast, OscSync(On))
+                        .as_bytes()
+                        .as_slice(),
+                ),
+                Key::Char('y') => app.command(
+                    SetGlobalSetting(Multicast, OscSync(Off))
+                        .as_bytes()
+                        .as_slice(),
+                ),
+
+                // Menu stuff
+                Key::Char('\n') => app.command(
+                    SetGlobalSetting(Multicast, MENU_MAPPINGS[app.basic_menu.selection].1)
+                        .as_bytes()
+                        .as_slice(),
+                ),
+                Key::Char('\t') => app.tabs.next(),
+                Key::Down => {
+                    app.basic_menu.select_next();
+                }
+                Key::Up => {
+                    app.basic_menu.select_previous();
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 fn main() -> Result<(), Box<dyn error::Error>> {
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
@@ -136,7 +216,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
             }
         })?;
 
-        app.tick();
+        tick(app);
     }
     Ok(())
 }
